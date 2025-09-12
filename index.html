@@ -49,7 +49,7 @@
         <button onclick="saveProfile()">Save</button>
         <span id="profileOk" class="oktag" style="display:none;">Saved</span>
       </div>
-      <div class="muted">Once saved, this info is locked for the game.</div>
+      <div id="pendingNote" class="muted" style="display:none;"></div>
     </div>
 
     <!-- Profile Summary (shown after saved) -->
@@ -148,9 +148,11 @@ async function ensurePlayer() {
     playerId = data.id;
     localStorage.setItem('player_id', playerId);
   }
+  // If they arrived with a tag and profile is not ready, store tag as pending
+  if(incomingTag){ localStorage.setItem('pending_tag', incomingTag); }
   await renderPlay();
-  // If we arrived with ?tag=CODE, try to claim (after render so profile checks can show)
-  if(incomingTag) { await claimFromParam(incomingTag); }
+  // If profile is already complete AND tag present, auto-claim
+  if(incomingTag){ await tryAutoClaimPending(); }
 }
 ensurePlayer();
 
@@ -184,6 +186,11 @@ async function renderPlay(){
     // prefill inputs if partially saved
     document.getElementById('nickname').value = nickname;
     document.getElementById('phone').value = data.phone || "";
+    // if a pending tag exists, show a note to encourage saving
+    const p = localStorage.getItem('pending_tag');
+    const note = document.getElementById('pendingNote');
+    if(p){ note.innerText = `You scanned: ${p}. Save your profile to log it.`; note.style.display='block'; }
+    else { note.style.display='none'; }
   }
 
   await loadProgress();
@@ -206,28 +213,30 @@ async function saveProfile(){
   document.getElementById('profileOk').style.display='inline-block';
   setTimeout(()=>document.getElementById('profileOk').style.display='none', 1200);
   await renderPlay();
+  await tryAutoClaimPending();
   loadLeaderboard();
 }
 
-// --- Auto-claim from ?tag=CODE (NFC/QR only) ---
-async function claimFromParam(code){
+// --- Auto-claim pending tag after profile is complete ---
+async function tryAutoClaimPending(){
+  const p = (localStorage.getItem('pending_tag') || "").trim().toUpperCase();
+  if(!p) return;
   // Check profile
   const { data } = await supabase.from('players').select('nickname, phone').eq('id', playerId).maybeSingle();
   const ok = data && data.nickname && data.nickname.trim().length>=2 && !badName(data.nickname) && data.phone && isValidPhone(data.phone);
-  if(!ok){
-    toast("Save nickname & phone before scanning tokens.");
-    return;
-  }
+  if(!ok){ return; }
   // Prevent duplicates
-  const prior = await supabase.from('finds').select('id').eq('player_id', playerId).eq('tag_id', code).maybeSingle();
-  if(prior.data){ toast("Already logged"); return; }
+  const prior = await supabase.from('finds').select('id').eq('player_id', playerId).eq('tag_id', p).maybeSingle();
+  if(prior.data){ localStorage.removeItem('pending_tag'); history.replaceState({}, "", location.pathname+"?v=play"); return; }
   // Validate tag
-  const tag = await supabase.from('tags').select('*').eq('id', code).maybeSingle();
-  if(!tag.data || !tag.data.active){ toast("Invalid or inactive token"); return; }
+  const tag = await supabase.from('tags').select('*').eq('id', p).maybeSingle();
+  if(!tag.data || !tag.data.active){ toast("Invalid or inactive token"); localStorage.removeItem('pending_tag'); history.replaceState({}, "", location.pathname+"?v=play"); return; }
   const pts = tag.data.points || 0;
-  const { error } = await supabase.from('finds').insert({ player_id:playerId, tag_id:code, score_awarded: pts });
+  const { error } = await supabase.from('finds').insert({ player_id:playerId, tag_id:p, score_awarded: pts });
   if(error) toast("Log failed: "+error.message);
-  else { toast(`Logged ${code} (+${pts} pts)`); await loadProgress(); await loadMyFinds(); history.replaceState({}, "", location.pathname+"?v=play"); }
+  else { toast(`Logged ${p} (+${pts} pts)`); await loadProgress(); await loadMyFinds(); }
+  localStorage.removeItem('pending_tag');
+  history.replaceState({}, "", location.pathname+"?v=play");
 }
 
 async function loadProgress(){

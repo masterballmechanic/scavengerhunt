@@ -1,29 +1,360 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Munchies Halloween Hunt</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>🎃 Munchies Hunt</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<style>
+  :root { --bg: #0a0a0a; --panel:#121214; --ink:#eaeaf2; --muted:#a0a0b3; --accent:#ff6b00; --accent2:#ffb703; --ok:#2ee26d; --warn:#ffb703; --bad:#ff3b3b; }
+  *{ box-sizing:border-box }
+  html,body{ margin:0; background:var(--bg); color:var(--ink); font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu; }
+  .shell{ max-width:960px; margin:0 auto; padding:20px 16px 120px; }
+  header{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin:6px 0 14px; }
+  .brand{ display:flex; align-items:center; gap:10px; font-weight:800; letter-spacing:.2px }
+  .brand span.em{ font-size:28px }
+  .tabs{ display:flex; gap:8px; flex-wrap:wrap }
+  .tab{ padding:10px 12px; border-radius:12px; border:1px solid #272733; background:#14141a; color:var(--ink); text-decoration:none; font-weight:600 }
+  .tab[data-active="1"]{ background:linear-gradient(180deg, #1b1b26, #14141a); border-color:#2e2e40; box-shadow: inset 0 0 0 1px #2e2e40; }
+  .panel{ background:var(--panel); border:1px solid #242438; border-radius:18px; padding:16px; box-shadow:0 10px 30px rgba(0,0,0,.4) }
+  h1,h2,h3{ margin:8px 0 }
+  .sub{ color:var(--muted); margin:0 0 14px }
+  input,button,select{ font-size:16px; padding:12px 14px; border-radius:12px; border:1px solid #2a2d44; background:#111119; color:var(--ink); }
+  button{ background:var(--accent); color:#111; font-weight:800; cursor:pointer; border:none }
+  button.alt{ background:#1f1f2b; color:var(--ink); border:1px solid #2a2d44 }
+  .grid{ display:grid; gap:12px }
+  .row{ display:flex; gap:10px; flex-wrap:wrap }
+  .pill{ font-size:12px; padding:6px 10px; border-radius:999px; background:#1c1c2a; border:1px solid #2a2d44; color:var(--muted) }
+  .toast{ position:fixed; left:50%; transform:translateX(-50%); bottom:16px; background:#151526; border:1px solid #2a2d44; padding:10px 14px; border-radius:12px; z-index:50 }
+  .ok{ color:var(--ok); font-weight:700 }
+  .warn{ color:var(--warn); font-weight:700 }
+  .danger{ color:var(--bad); font-weight:700 }
+  .list{ list-style:none; padding:0; margin:0 }
+  .item{ display:flex; justify-content:space-between; align-items:center; border:1px solid #26263a; background:#12121c; padding:12px; border-radius:12px; margin:8px 0 }
+  .progress{ height:12px; background:#191927; border-radius:999px; overflow:hidden; margin:12px 0 0 }
+  .bar{ height:100%; width:0%; background:linear-gradient(90deg, var(--accent), var(--accent2)); transition:width .35s ease }
+  .kpi{ display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 }
+  .kpi .pill b{ color:#fff }
+  .footer{ position:fixed; left:0; right:0; bottom:0; padding:10px; background:rgba(10,10,12,.95); border-top:1px solid #242438; display:flex; gap:8px; justify-content:center }
+  table{ width:100%; border-collapse:collapse; }
+  th,td{ border-bottom:1px solid #26263a; padding:10px 8px; text-align:left }
+  td.right{ text-align:right }
+  .big{ font-size:36px; font-weight:900 }
+  .ghost{ opacity:.75 }
+  .hidden{ display:none }
+</style>
 </head>
-<body style="background:#0b0b12;color:#fff;font-family:sans-serif;padding:20px">
-<h1>Munchies Halloween Hunt</h1>
-<p>Supabase URL: <code>https://oeahpsbnazvijogyxedu.supabase.co</code></p>
-<p>Key: <code>eyJhbG...cYqaPE</code></p>
-<div id="out">Loading...</div>
-<script type="module">
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+<body>
+  <div class="shell">
+    <header>
+      <div class="brand"><span class="em">👻</span> Munchies Hunt</div>
+      <nav class="tabs">
+        <a class="tab" id="tabPlay" href="?v=play">Play</a>
+        <a class="tab" id="tabAdmin" href="?v=admin">Admin</a>
+        <a class="tab" id="tabBoard" href="?v=leaderboard">Leaderboard</a>
+      </nav>
+    </header>
 
+    <div id="screen" class="grid"></div>
+  </div>
+
+  <div id="toaster" class="toast hidden"></div>
+  <div class="footer" id="footer"></div>
+
+<script type="module">
+import {{ createClient }} from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+// --- Supabase (hard-coded) ---
 const SUPABASE_URL = "https://oeahpsbnazvijogyxedu.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9lYWhwc2JuYXp2aWpvZ3l4ZWR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc2MzIxMDQsImV4cCI6MjA3MzIwODEwNH0.FFx6EfbVu2FGGdsfLHGAUASSfsek679Q1z5gDcYqaPE";
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-async function test() {
-  const out = document.getElementById("out");
-  let { data, error } = await sb.from("tags").select("*").limit(5);
-  if (error) out.textContent = "Error: " + JSON.stringify(error);
-  else out.textContent = "Tags: " + JSON.stringify(data);
+// --- Helpers ---
+const $ = (id)=>document.getElementById(id);
+const qs = new URLSearchParams(location.search);
+const view = (qs.get("v")||"play").toLowerCase();
+const claimTagId = qs.get("tag");
+const setActive = (id)=>{ ["tabPlay","tabAdmin","tabBoard"].forEach(t=>$(t).dataset.active="0"); $(id).dataset.active="1"; };
+const fmt = (n)=> new Intl.NumberFormat().format(n);
+
+let playerId = localStorage.getItem("hunt_player_id");
+
+function toast(msg, cls="ok", t=2500){
+  const box = $("toaster");
+  box.className = "toast " + cls;
+  box.textContent = msg;
+  box.classList.remove("hidden");
+  setTimeout(()=>box.classList.add("hidden"), t);
 }
-test();
+
+// --- Filters ---
+const bannedWords = [
+  "fuck","shit","bitch","cunt","asshole","bastard","dick","cock","pussy","twat","slut","whore","prick","bollocks","bugger","arse","damn","goddamn","hell",
+  "handjob","blowjob","dildo","clit","penis","vagina","cum","jizz","jism","spunk","orgasm","rape","rapist","molest","incest","pedo","pedophile",
+  "nigger","nigga","chink","spic","kike","faggot","tranny","dyke","gook","coon","wetback","raghead","paki","jap","slant","zipperhead","gypsy",
+  "fuk","f*ck","f#ck","sh1t","biatch","btch","azzhole","a$$hole","c0ck","dik","pusy","phuck","phuk","mofo","m0f0","wtf","stfu",
+  "hitler","stalin","mussolini","putin","lenin","mao","kim jong","kim jong un","xi jinping","trump","donald trump","biden","joe biden","obama","barack",
+  "bush","george bush","reagan","ronald reagan","saddam","saddam hussein","bin laden","osama","gaddafi","qaddafi","pol pot","castro","fidel",
+  "che guevara","ayatollah","netanyahu","modi","erdogan","bolsonaro","duarte","assad","mohammed bin","king jong"
+];
+const hasProfanity = (s)=> s && bannedWords.some(w => (s.toLowerCase()).includes(w));
+const sanitizeName = (s)=> !s ? "" : (hasProfanity(s) ? "" : s);
+const safeName = (name, id)=> sanitizeName(name)?.trim?.() ? sanitizeName(name).trim() : String(id).slice(0,8);
+
+// --- Data helpers ---
+async function ensurePlayer(){
+  if (playerId) return playerId;
+  const {{ data, error }} = await sb.from("players").insert({{}}).select("id").single();
+  if (error) {{ toast("Could not create player","danger"); return null; }}
+  playerId = data.id; localStorage.setItem("hunt_player_id", playerId); return playerId;
+}
+async function getActiveTags(){
+  const {{ data, error }} = await sb.from("tags").select("*").eq("active", true).order("id");
+  if (error) {{ toast("Tags load failed","danger"); return []; }}
+  return data||[];
+}
+async function getFinds(pid){
+  const {{ data }} = await sb.from("finds").select("tag_id").eq("player_id", pid);
+  return (data||[]).map(x=>x.tag_id);
+}
+
+// --- Player screen ---
+async function screenPlay(){
+  setActive("tabPlay");
+  $("screen").innerHTML = "";
+  const pid = await ensurePlayer(); if (!pid) return;
+  if (claimTagId) {{ await claim(claimTagId.toUpperCase()); history.replaceState({{}}, "", location.pathname + "?v=play"); }}
+  const tags = await getActiveTags();
+  const found = new Set(await getFinds(pid));
+  const totalPts = tags.reduce((a,t)=>a+(t.points||0),0);
+  const earned = tags.filter(t=>found.has(t.id)).reduce((a,t)=>a+(t.points||0),0);
+  const pct = tags.length ? Math.round((found.size / tags.length) * 100) : 0;
+
+  $("screen").innerHTML = `
+    <div class="panel">
+      <h1>🎃 Hunt</h1>
+      <p class="sub">Tap the NFC token or scan the QR. Log as many as you can, then redeem at the truck.</p>
+      <div class="row">
+        <input id="nickname" placeholder="Nickname (optional)" style="flex:1; min-width:160px" />
+        <input id="phone" placeholder="Phone (optional)" inputmode="tel" style="flex:1; min-width:140px" />
+        <button id="saveProfile">Save</button>
+      </div>
+      <div class="kpi">
+        <span class="pill"><b>{{found}}/{{total}}</b> found</span>
+        <span class="pill"><b>{{earned}}/{{totalPts}}</b> pts</span>
+      </div>
+      <div class="progress"><div class="bar" style="width:${pct}%"></div></div>
+    </div>
+    <div class="panel" id="tagsPanel">
+      <h2>Tokens</h2>
+      <ul class="list" id="tagList"></ul>
+    </div>
+  `.replace("{{found}}", found.size).replace("{{total}}", tags.length).replace("{{earned}}", fmt(earned)).replace("{{totalPts}}", fmt(totalPts));
+
+  // Render tags
+  const list = $("tagList");
+  tags.forEach(t=>{
+    const li = document.createElement("li");
+    li.className = "item";
+    const already = found.has(t.id);
+    li.innerHTML = `<div><b>${'${t.label || t.id}'}</b><div class="sub ghost">${'${t.id}'}</div></div><div>${'${already?"✅":"🧟‍♂️"}'} <span class="pill">${'${t.points||0}'} pts</span></div>`;
+    list.appendChild(li);
+  });
+
+  $("saveProfile").onclick = async ()=>{
+    const nick = sanitizeName((document.getElementById("nickname").value||"").trim());
+    const phone = (document.getElementById("phone").value||"").trim();
+    if (!nick && (document.getElementById("nickname").value||"")) toast("Nickname blocked","warn");
+    await sb.from("players").update({ nickname: nick, phone }).eq("id", playerId);
+    toast("Saved");
+  };
+
+  // Footer actions
+  $("footer").innerHTML = `
+    <button id="claimBtn">👻 Log a token</button>
+    <button class="alt" id="redeemBtn">🍦 Redeem at truck</button>
+  `;
+  $("claimBtn").onclick = async ()=>{ const code = prompt("Enter code on token (e.g., GRAVEYARD-03):"); if (code) await claim(code.trim().toUpperCase()); };
+  $("redeemBtn").onclick = ()=> alert("Show this screen to staff. They'll verify points and award your treat!");
+}
+
+// --- Claim ---
+function haversine(lat1,lon1,lat2,lon2){ const R=6371e3, toRad=v=>v*Math.PI/180; const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
+  const a=Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2; return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)); }
+
+async function claim(tagId){
+  const { data: prior } = await sb.from("finds").select("id").eq("player_id", playerId).eq("tag_id", tagId).maybeSingle();
+  if (prior) return toast("Already logged","warn");
+
+  const { data: tag } = await sb.from("tags").select("*").eq("id", tagId).maybeSingle();
+  if (!tag || !tag.active) return toast("Invalid or inactive","warn");
+
+  try {
+    if (tag.lat && tag.lng && navigator.geolocation) {
+      const pos = await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej,{timeout:4000}));
+      const d = haversine(pos.coords.latitude, pos.coords.longitude, tag.lat, tag.lng);
+      if (d > 150) toast("You seem far from this token. Staff may verify.","warn", 3500);
+    }
+  } catch(_) {}
+
+  const { error } = await sb.from("finds").insert({ player_id: playerId, tag_id: tagId, score_awarded: tag.points||0 });
+  if (error) return toast("Error logging token","danger");
+  toast(`Logged: ${'${tag.label || tagId}'} (+${'${tag.points||0}'} pts)`);
+  await screenPlay();
+}
+
+// --- Admin ---
+async function requireAdmin(){
+  const { data:{ user } } = await sb.auth.getUser();
+  if (user) return user;
+  $("screen").innerHTML = `
+    <div class="panel">
+      <h1>🧛 Admin Login</h1>
+      <p class="sub">Enter your email, we’ll send a code.</p>
+      <div class="row"><input id="adminEmail" placeholder="you@domain.com" style="flex:1" /><button id="sendOtp">Send Code</button></div>
+      <div class="row"><input id="otp" placeholder="6-digit code" inputmode="numeric" /><button id="verifyOtp">Verify</button></div>
+    </div>`;
+  $("footer").innerHTML = `<span class="pill">Whitelist your user_id in public.admins</span>`;
+  $("sendOtp").onclick = async ()=>{ const email=(document.getElementById("adminEmail").value||"").trim(); if(!email) return; const { error } = await sb.auth.signInWithOtp({ email, options:{ emailRedirectTo: location.href } }); if (error) toast("Send failed","danger"); else toast("Check your email","ok"); };
+  $("verifyOtp").onclick = async ()=>{ const email=(document.getElementById("adminEmail").value||"").trim(); const token=(document.getElementById("otp").value||"").trim(); if(!email||!token) return; const { error }=await sb.auth.verifyOtp({ email, token, type:"email" }); if(error) toast("Invalid code","danger"); else screenAdmin(); };
+  throw new Error("login-first");
+}
+
+async function screenAdmin(){
+  setActive("tabAdmin");
+  try { await requireAdmin(); } catch { return; }
+
+  const [tags, stats] = await Promise.all([
+    sb.from("tags").select("*").order("id"),
+    (async()=>{
+      const [{ data: f }, { count: tagCount }, { count: playerCount }] = await Promise.all([
+        sb.from("finds").select("score_awarded"),
+        sb.from("tags").select("*",{ count:"exact", head:true }),
+        sb.from("players").select("*",{ count:"exact", head:true })
+      ]);
+      const totalPoints = (f||[]).reduce((a,x)=>a+(x.score_awarded||0),0);
+      return { tagCount: tagCount||0, playerCount: playerCount||0, totalPoints };
+    })()
+  ]);
+
+  $("screen").innerHTML = `
+    <div class="panel">
+      <h1>🧛 Admin</h1>
+      <div class="kpi">
+        <span class="pill"><b>${'${stats.tagCount}'}</b> tags</span>
+        <span class="pill"><b>${'${stats.playerCount}'}</b> players</span>
+        <span class="pill"><b>${'${fmt(stats.totalPoints)}'}</b> points</span>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Tags</h2>
+      <div id="tagRows"></div>
+    </div>
+    <div class="panel">
+      <h2>Live Finds</h2>
+      <ul class="list" id="feed"></ul>
+    </div>`;
+
+  const host = $("tagRows");
+  tags.data?.forEach(t=> renderTagRow(t, false, host));
+  $("footer").innerHTML = `<button id="newTag">➕ New Tag</button><button class="alt" id="signOut">🚪 Sign Out</button>`;
+  $("newTag").onclick = ()=> renderTagRow({ id:"", label:"", points:10, active:true }, true, host);
+  $("signOut").onclick = async ()=>{ await sb.auth.signOut(); location.reload(); };
+
+  drawFeed();
+  try { sb.channel("finds_changes").on("postgres_changes", { event:"INSERT", schema:"public", table:"finds" }, drawFeed).subscribe(); } catch(_){}
+}
+
+function renderTagRow(t, isNew=false, host) {
+  const row = document.createElement("div");
+  row.className = "row";
+  row.style.alignItems = "center";
+  row.innerHTML = `
+    <input placeholder="ID (GRAVEYARD-03)" value="${'${t.id||""}'}" ${'${!isNew?"disabled":""}'} style="min-width:160px" />
+    <input placeholder="Label" value="${'${t.label||""}'}" style="min-width:160px" />
+    <input placeholder="Points" inputmode="numeric" value="${'${t.points??10}'}" style="width:110px" />
+    <select>
+      <option value="true" ${'${t.active?"selected":""}'}>Active</option>
+      <option value="false" ${'${!t.active?"selected":""}'}>Inactive</option>
+    </select>
+    <button>${'${isNew?"Save":"Update"}'}</button>
+    ${'${!isNew?'<button class="alt" data-del="1">Delete</button>':""}'}
+  `;
+  const [idI,labelI,ptsI,actS,saveB,delB] = row.querySelectorAll("input,select,button");
+  saveB.onclick = async ()=>{ const rowData = { id:(idI.value||"").trim().toUpperCase(), label:(labelI.value||"").trim(), points:parseInt(ptsI.value||"10",10), active:actS.value==="true" };
+    if(!rowData.id) return toast("ID required","warn"); const { error } = await sb.from("tags").upsert(rowData); if(error) toast("Save failed","danger"); else toast("Saved","ok"); };
+  if (delB) delB.onclick = async ()=>{ if(!confirm(`Delete ${'${t.id}'}?`)) return; const { error } = await sb.from("tags").delete().eq("id", t.id); if(error) toast("Delete failed","danger"); else { toast("Deleted","ok"); row.remove(); } };
+  host.appendChild(row);
+}
+
+async function drawFeed(){
+  const feed = document.getElementById("feed");
+  const rpc = await sb.rpc("recent_finds_with_names", { limit_count: 25 }).catch(()=>({ data:null }));
+  const rows = rpc.data || (await sb.from("finds").select("found_at, score_awarded, tag_id, player_id").order("found_at",{ascending:false}).limit(25)).data || [];
+  feed.innerHTML = "";
+  rows.forEach(r=>{
+    const who = r.player ? safeName(r.player, r.player) : safeName("", r.player_id);
+    const li = document.createElement("li");
+    li.className = "item";
+    li.innerHTML = `<div><b>${'${r.tag_id}'} </b><div class="sub ghost">${'${new Date(r.found_at).toLocaleTimeString()}'} </div></div><div>+${'${r.score_awarded||0}'} <span class="pill">${'${who}'}</span></div>`;
+    feed.appendChild(li);
+  });
+}
+
+// --- Leaderboard ---
+async function screenBoard(){
+  setActive("tabBoard");
+  document.getElementById("screen").innerHTML = `
+    <div class="panel">
+      <h1>👻 Leaderboard</h1>
+      <div class="kpi" id="lbKpi"></div>
+      <table id="lbTable">
+        <thead><tr><th>#</th><th>Player</th><th class="right">Points</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>`;
+  document.getElementById("footer").innerHTML = `<button id="refresh">🔄 Refresh</button><button class="alt" id="fit">🖥️ Fullscreen</button>`;
+  document.getElementById("refresh").onclick = drawBoard;
+  document.getElementById("fit").onclick = ()=>{ if(document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(()=>{}); };
+  await drawBoard();
+  setInterval(drawBoard, 15000);
+}
+
+async function drawBoard(){
+  const { data } = await sb.from("finds").select("player_id, score_awarded").order("found_at", { ascending:false });
+  const scores = new Map();
+  (data||[]).forEach(r=> scores.set(r.player_id, (scores.get(r.player_id)||0)+(r.score_awarded||0)));
+  const ids = Array.from(scores.keys());
+  let names = {};
+  if (ids.length) {
+    const res = await sb.from("players").select("id,nickname").in("id", ids);
+    (res.data||[]).forEach(p=> names[p.id] = p.nickname || "");
+  }
+  const rows = ids.map(id=>({ id, name: safeName(names[id], id), pts: scores.get(id) })).sort((a,b)=>b.pts-a.pts).slice(0,20);
+
+  const tbody = document.querySelector("#lbTable tbody");
+  tbody.innerHTML = "";
+  rows.forEach((r,i)=>{
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${'${i+1}'}</td><td>${'${r.name}'}</td><td class="right big">${'${fmt(r.pts)}'}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  const totalPoints = (data||[]).reduce((a,x)=>a+(x.score_awarded||0),0);
+  document.getElementById("lbKpi").innerHTML = `<span class="pill"><b>${'${fmt(totalPoints)}'}</b> total points</span> <span class="pill"><b>${'${rows.length}'} </b> players on board</span>`;
+}
+
+// --- Router ---
+(async function main(){
+  try {
+    if (view === "admin") return screenAdmin();
+    if (view === "leaderboard") return screenBoard();
+    return screenPlay();
+  } catch(e) {
+    console.error(e);
+    toast("Load error","danger", 4000);
+  }
+})();
 </script>
 </body>
 </html>

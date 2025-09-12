@@ -13,9 +13,13 @@
     section { display:none; padding:20px; }
     section.active { display:block; }
     .toast { position:fixed; bottom:10px; right:10px; background:#333; padding:10px; border-radius:5px; }
-    input, button, textarea { margin:5px 0; padding:8px; }
+    input, button, textarea, select { margin:5px 0; padding:8px; }
     .muted { color:#bbb; font-size:12px; }
     .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th, td { border-bottom:1px solid #2a2a2a; padding:8px; text-align:left; }
+    td.right { text-align:right }
+    .pill { background:#222; border:1px solid #333; padding:4px 8px; border-radius:999px; font-size:12px; }
   </style>
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 </head>
@@ -42,14 +46,30 @@
         <input id="admin-pass" placeholder="Password" type="password" autocomplete="current-password"/>
         <button onclick="loginPassword()">Login</button>
       </div>
-      <div class="muted">Only whitelisted accounts can manage tags. No email links; password only.</div>
+      <div class="muted">Only whitelisted accounts can manage tags & points. Password login only.</div>
     </div>
     <div id="admin-panel" style="display:none;">
       <div class="row">
         <button onclick="signOut()">🚪 Sign out</button>
+        <span id="whoami" class="pill"></span>
       </div>
+
+      <h3>Players (adjust points)</h3>
+      <div class="row">
+        <input id="searchName" placeholder="Search nickname"/>
+        <button onclick="loadPlayers()">Search</button>
+        <button onclick="loadPlayers(true)" title="Show all">Show all</button>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Player</th><th class="right">Points</th><th>Δ (e.g. -5 or 10)</th><th>Reason</th><th></th></tr>
+        </thead>
+        <tbody id="playersTable"></tbody>
+      </table>
+
       <h3>Tags</h3>
       <div id="tag-list"></div>
+
       <h3>Live Finds</h3>
       <div id="live-finds"></div>
     </div>
@@ -68,6 +88,7 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let playerId = localStorage.getItem('player_id');
+let adminUser = null;
 
 async function ensurePlayer() {
   if (!playerId) {
@@ -118,8 +139,9 @@ async function loadProgress(){
   document.getElementById('progress').innerText = `Found: ${found} / ${total} • Points: ${points}`;
 }
 
-// --- Leaderboard ---
+// --- Leaderboard with adjustments ---
 async function loadLeaderboard(){
+  // aggregate finds
   const finds = await supabase.from('finds').select('player_id, score_awarded');
   if(finds.error) { console.error(finds.error); return; }
   const scores = new Map();
@@ -127,6 +149,16 @@ async function loadLeaderboard(){
     const key = String(r.player_id);
     scores.set(key,(scores.get(key)||0)+(r.score_awarded||0));
   });
+
+  // aggregate adjustments
+  const adj = await supabase.from('adjustments').select('player_id, delta');
+  if(!adj.error){
+    (adj.data||[]).forEach(a=>{
+      const key = String(a.player_id);
+      scores.set(key,(scores.get(key)||0)+(a.delta||0));
+    });
+  }
+
   const ids = Array.from(scores.keys());
   if(ids.length===0) { document.getElementById('leaders').innerHTML = "<div class='muted'>No plays yet</div>"; return; }
 
@@ -136,7 +168,7 @@ async function loadLeaderboard(){
   (players.data||[]).forEach(p=> names[String(p.id)] = p.nickname || "");
 
   const arr = ids.map(id=>({ id, name: names[id]||id.slice(0,8), pts: scores.get(id) }))
-                 .sort((a,b)=>b.pts-a.pts).slice(0,20);
+                 .sort((a,b)=>b.pts-a.pts).slice(0,50);
   document.getElementById('leaders').innerHTML = arr.map((r,i)=>`<div>${i+1}. <b>${r.name}</b> — ${r.pts} pts</div>`).join("");
 }
 
@@ -157,7 +189,9 @@ async function checkAdminSession(){
     document.getElementById('admin-login').style.display='block';
     return;
   }
-  // Optional: validate the user is in 'admins' table
+  adminUser = user;
+  document.getElementById('whoami').innerText = user.email;
+  // verify admin
   const admin = await supabase.from('admins').select('user_id').eq('user_id', user.id).maybeSingle();
   if(!admin.data){
     toast("This account is not whitelisted as admin");
@@ -168,7 +202,7 @@ async function checkAdminSession(){
   }
   document.getElementById('admin-login').style.display='none';
   document.getElementById('admin-panel').style.display='block';
-  loadAdmin();
+  await Promise.all([loadAdmin(), loadPlayers(true)]);
 }
 
 async function signOut(){
@@ -177,11 +211,73 @@ async function signOut(){
   document.getElementById('admin-login').style.display='block';
 }
 
+// --- Admin data ---
 async function loadAdmin(){
   const tags = await supabase.from('tags').select('*').order('id');
   document.getElementById('tag-list').innerHTML = (tags.data||[]).map(t=>`<div>${t.id} — ${t.label||''} (${t.points||0} pts)</div>`).join("");
   const finds = await supabase.from('finds').select('found_at, tag_id, score_awarded').order('found_at', { ascending:false }).limit(10);
   document.getElementById('live-finds').innerHTML = (finds.data||[]).map(f=>`<div>${new Date(f.found_at).toLocaleTimeString()} — ${f.tag_id} (+${f.score_awarded})</div>`).join("");
+}
+
+// --- Admin: player list + adjustments ---
+function sumBy(arr, key){ return (arr||[]).reduce((a,x)=>a+(x[key]||0),0); }
+
+async function loadPlayers(showAll=false){
+  // get base players (limit for perf)
+  const q = supabase.from('players').select('id,nickname').order('created_at',{ascending:false});
+  let players;
+  const term = document.getElementById('searchName').value.trim();
+  if(showAll){ players = await q.limit(200); }
+  else if(term){ players = await supabase.from('players').select('id,nickname').ilike('nickname', `%${term}%`).limit(100); }
+  else { players = await q.limit(50); }
+
+  if(players.error){ document.getElementById('playersTable').innerHTML = "<tr><td colspan='5'>Error loading players</td></tr>"; return; }
+  const ids = (players.data||[]).map(p=>p.id);
+  if(ids.length===0){ document.getElementById('playersTable').innerHTML = "<tr><td colspan='5' class='muted'>No players found</td></tr>"; return; }
+
+  // aggregate points from finds + adjustments
+  const [f, a] = await Promise.all([
+    supabase.from('finds').select('player_id, score_awarded').in('player_id', ids),
+    supabase.from('adjustments').select('player_id, delta').in('player_id', ids)
+  ]);
+  const findsBy = new Map(); (f.data||[]).forEach(x=> findsBy.set(x.player_id, (findsBy.get(x.player_id)||0)+(x.score_awarded||0)));
+  const adjBy = new Map(); (a.data||[]).forEach(x=> adjBy.set(x.player_id, (adjBy.get(x.player_id)||0)+(x.delta||0)));
+
+  const tbody = document.getElementById('playersTable');
+  tbody.innerHTML = "";
+  (players.data||[]).forEach(p=>{
+    const base = findsBy.get(p.id)||0;
+    const extra = adjBy.get(p.id)||0;
+    const total = base + extra;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${p.nickname||p.id.slice(0,8)}</td>
+      <td class="right"><b>${total}</b> <span class="muted">(tags: ${base} / adj: ${extra})</span></td>
+      <td><input type="number" step="1" value="0" style="width:90px" /></td>
+      <td><input type="text" placeholder="Reason (optional)" style="min-width:180px" /></td>
+      <td><button>Apply</button></td>
+    `;
+    const [deltaI, reasonI, btn] = [tr.children[2].children[0], tr.children[3].children[0], tr.children[4].children[0]];
+    btn.onclick = async ()=>{
+      const delta = parseInt(deltaI.value||"0",10);
+      if(!delta) { toast("Enter a non-zero delta"); return; }
+      const reason = reasonI.value||null;
+      const { data: session } = await supabase.auth.getUser();
+      const admin_id = session?.user?.id || null;
+      const { error } = await supabase.from('adjustments').insert({ player_id: p.id, delta, reason, admin_id });
+      if(error){ toast("Failed: "+error.message); return; }
+      toast(`Applied ${delta>0?'+':''}${delta} to ${p.nickname||p.id.slice(0,8)}`);
+      await Promise.all([loadPlayers(showAll), loadLeaderboard()]);
+    };
+    tbody.appendChild(tr);
+  });
+}
+
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.innerText=msg;
+  t.style.display='block';
+  setTimeout(()=>t.style.display='none',3000);
 }
 </script>
 </body>

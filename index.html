@@ -23,6 +23,10 @@
     th, td { border-bottom:1px solid #2a2a2a; padding:8px; text-align:left; }
     td.right { text-align:right }
     .pill { background:#222; border:1px solid #333; padding:4px 8px; border-radius:999px; font-size:12px; }
+    .card { border:1px solid #2a2a2a; background:#141414; border-radius:10px; padding:12px; margin:10px 0; }
+    .list { list-style:none; padding:0; margin:0 }
+    .item { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px dashed #2a2a2a }
+    .item:last-child { border-bottom:none }
   </style>
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 </head>
@@ -34,16 +38,32 @@
   </header>
 
   <section id="play" class="active">
-    <h2>🎃 Player View</h2>
-    <div id="phoneBanner" class="warn" style="display:none;">📱 Phone required to play. Enter a valid number and hit <b>Save</b>.</div>
-    <div class="row">
-      <input id="nickname" placeholder="Nickname (optional)"/>
-      <input id="phone" placeholder="Phone (e.g., 555-123-4567 or +15551234567)" inputmode="tel"/>
-      <button onclick="saveProfile()">Save</button>
-      <span id="profileOk" class="oktag" style="display:none;">Saved</span>
+    <h2>🎃 Player</h2>
+    <div id="profileBanner" class="warn" style="display:none;">📝 Nickname <b>and</b> 📱 Phone are required to play. Enter both and hit <b>Save</b>.</div>
+
+    <!-- Profile Editor (shown only if missing fields) -->
+    <div id="profileEditor" class="card" style="display:none;">
+      <div class="row">
+        <input id="nickname" placeholder="Nickname (required)" maxlength="24"/>
+        <input id="phone" placeholder="Phone (e.g., 555-123-4567 or +15551234567)" inputmode="tel"/>
+        <button onclick="saveProfile()">Save</button>
+        <span id="profileOk" class="oktag" style="display:none;">Saved</span>
+      </div>
+      <div class="muted">Once saved, this info is locked for the game.</div>
     </div>
-    <div><button onclick="claimTag()">👻 Log a token</button></div>
+
+    <!-- Profile Summary (shown after saved) -->
+    <div id="profileSummary" class="card" style="display:none;">
+      <div><b>Nickname:</b> <span id="summaryNick"></span></div>
+      <div class="muted">Your tokens will auto-log when you scan NFC/QR with this device.</div>
+    </div>
+
     <div id="progress" class="muted"></div>
+    <div class="card">
+      <h3>Your Finds</h3>
+      <ul id="myFinds" class="list"></ul>
+      <div id="noFinds" class="muted">No finds yet. Scan your first token!</div>
+    </div>
   </section>
 
   <section id="admin">
@@ -95,8 +115,20 @@ const SUPABASE_URL = "https://oeahpsbnazvijogyxedu.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9lYWhwc2JuYXp2aWpvZ3l4ZWR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc2MzIxMDQsImV4cCI6MjA3MzIwODEwNH0.FFx6EfbVu2FGGdsfLHGAUASSfsek679Q1z5gDcYqaPE"; // baked-in anon public key
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+const qs = new URLSearchParams(location.search);
+const incomingTag = (qs.get("tag") || "").trim().toUpperCase();
+
 let playerId = localStorage.getItem('player_id');
 let adminUser = null;
+
+// --- nickname profanity/world-leader filter (simple) ---
+const banned = [
+  "fuck","shit","bitch","cunt","asshole","bastard","dick","cock","pussy","twat","slut","whore","prick","bollocks","bugger","arse","damn","goddamn","hell",
+  "hitler","stalin","mussolini","putin","lenin","mao","kim jong","kim jong un","xi jinping","trump","donald trump","biden","joe biden","obama","barack",
+  "bush","reagan","saddam","bin laden","gaddafi","pol pot","castro","netanyahu","modi","erdogan","bolsonaro","assad","duarte","mohammed bin"
+];
+function badName(s){ if(!s) return true; const t=s.toLowerCase(); return banned.some(w=>t.includes(w)); }
+function cleanName(s){ return (s||"").replace(/\s+/g," ").trim(); }
 
 // --- phone helpers ---
 function normalizePhone(input){
@@ -104,7 +136,7 @@ function normalizePhone(input){
   const digits = (""+input).replace(/\D+/g, "");
   if(digits.length === 10) return "+1"+digits;     // US 10-digit -> E.164
   if(digits.length === 11 && digits.startsWith("1")) return "+"+digits;
-  if(input.startsWith("+") && digits.length >= 10 && digits.length <= 15) return input;
+  if((input.startsWith("+") && digits.length >= 10 && digits.length <= 15)) return "+"+digits;
   return ""; // invalid
 }
 function isValidPhone(input){ return !!normalizePhone(input); }
@@ -116,8 +148,9 @@ async function ensurePlayer() {
     playerId = data.id;
     localStorage.setItem('player_id', playerId);
   }
-  await refreshProfileBanner();
-  loadProgress();
+  await renderPlay();
+  // If we arrived with ?tag=CODE, try to claim (after render so profile checks can show)
+  if(incomingTag) { await claimFromParam(incomingTag); }
 }
 ensurePlayer();
 
@@ -130,46 +163,71 @@ function show(view) {
   if(view==='admin') checkAdminSession();
 }
 
-// --- Player actions ---
+// --- PLAY RENDER: swaps between editor vs summary ---
+async function renderPlay(){
+  const profile = await supabase.from('players').select('nickname, phone').eq('id', playerId).maybeSingle();
+  const data = profile.data || {};
+  const nickname = cleanName(data.nickname||"");
+  const phoneOk = !!data.phone && isValidPhone(data.phone);
+  const nickOk = !!nickname && nickname.length>=2 && !badName(nickname);
+  const ok = phoneOk && nickOk;
+
+  // banner
+  document.getElementById('profileBanner').style.display = ok ? 'none' : 'block';
+
+  // toggle editor vs summary
+  document.getElementById('profileEditor').style.display = ok ? 'none' : 'block';
+  document.getElementById('profileSummary').style.display = ok ? 'block' : 'none';
+  if(ok){
+    document.getElementById('summaryNick').innerText = nickname;
+  } else {
+    // prefill inputs if partially saved
+    document.getElementById('nickname').value = nickname;
+    document.getElementById('phone').value = data.phone || "";
+  }
+
+  await loadProgress();
+  await loadMyFinds(); // always show the list
+}
+
+// --- Save profile (then lock UI) ---
 async function saveProfile(){
-  const nickname = document.getElementById('nickname').value.trim();
+  let nickname = cleanName(document.getElementById('nickname').value);
   const phoneRaw = document.getElementById('phone').value.trim();
   const phone = normalizePhone(phoneRaw);
-  if(!isValidPhone(phoneRaw)){
-    toast("Enter a valid phone number"); document.getElementById('phone').focus(); return;
-  }
+
+  if(!nickname){ toast("Nickname is required"); document.getElementById('nickname').focus(); return; }
+  if(nickname.length < 2){ toast("Nickname must be at least 2 chars"); document.getElementById('nickname').focus(); return; }
+  if(badName(nickname)){ toast("Please choose a different nickname"); document.getElementById('nickname').focus(); return; }
+  if(!isValidPhone(phoneRaw)){ toast("Enter a valid phone number"); document.getElementById('phone').focus(); return; }
+
   const { error } = await supabase.from('players').update({nickname, phone}).eq('id',playerId);
   if(error){ toast("Save failed"); return; }
   document.getElementById('profileOk').style.display='inline-block';
-  setTimeout(()=>document.getElementById('profileOk').style.display='none', 1500);
-  await refreshProfileBanner();
+  setTimeout(()=>document.getElementById('profileOk').style.display='none', 1200);
+  await renderPlay();
   loadLeaderboard();
 }
 
-async function refreshProfileBanner(){
-  const { data, error } = await supabase.from('players').select('nickname, phone').eq('id', playerId).maybeSingle();
-  const banner = document.getElementById('phoneBanner');
-  if(error || !data){ banner.style.display='block'; return; }
-  const ok = !!data.phone && isValidPhone(data.phone);
-  banner.style.display = ok ? 'none' : 'block';
-}
-
-async function claimTag(){
-  // block unless phone saved & valid
-  const { data } = await supabase.from('players').select('phone').eq('id', playerId).maybeSingle();
-  if(!data || !isValidPhone(data.phone)){
-    document.getElementById('phoneBanner').style.display='block';
-    toast("Phone required to play. Save your number first.");
+// --- Auto-claim from ?tag=CODE (NFC/QR only) ---
+async function claimFromParam(code){
+  // Check profile
+  const { data } = await supabase.from('players').select('nickname, phone').eq('id', playerId).maybeSingle();
+  const ok = data && data.nickname && data.nickname.trim().length>=2 && !badName(data.nickname) && data.phone && isValidPhone(data.phone);
+  if(!ok){
+    toast("Save nickname & phone before scanning tokens.");
     return;
   }
-  const code = prompt("Enter tag id (e.g., GRAVEYARD-01)");
-  if(!code) return;
+  // Prevent duplicates
+  const prior = await supabase.from('finds').select('id').eq('player_id', playerId).eq('tag_id', code).maybeSingle();
+  if(prior.data){ toast("Already logged"); return; }
+  // Validate tag
   const tag = await supabase.from('tags').select('*').eq('id', code).maybeSingle();
-  if(!tag.data) return toast("Tag not found");
+  if(!tag.data || !tag.data.active){ toast("Invalid or inactive token"); return; }
   const pts = tag.data.points || 0;
   const { error } = await supabase.from('finds').insert({ player_id:playerId, tag_id:code, score_awarded: pts });
-  if(error) toast("Error: "+error.message);
-  else { toast(`Logged ${code} (+${pts} pts)`); loadProgress(); loadLeaderboard(); }
+  if(error) toast("Log failed: "+error.message);
+  else { toast(`Logged ${code} (+${pts} pts)`); await loadProgress(); await loadMyFinds(); history.replaceState({}, "", location.pathname+"?v=play"); }
 }
 
 async function loadProgress(){
@@ -179,6 +237,28 @@ async function loadProgress(){
   const found = new Set((finds.data||[]).map(f=>f.tag_id)).size;
   const points = (finds.data||[]).reduce((a,f)=>a+(f.score_awarded||0),0);
   document.getElementById('progress').innerText = `Found: ${found} / ${total} • Points: ${points}`;
+}
+
+// Show a player's own finds
+async function loadMyFinds(){
+  const { data, error } = await supabase
+    .from('finds')
+    .select('found_at, tag_id, tags(label, points)')
+    .eq('player_id', playerId)
+    .order('found_at', { ascending:false });
+  const list = document.getElementById('myFinds');
+  const empty = document.getElementById('noFinds');
+  list.innerHTML = "";
+  if(error || !data || !data.length){ empty.style.display='block'; return; }
+  empty.style.display='none';
+  data.forEach(r=>{
+    const li = document.createElement('li');
+    li.className = 'item';
+    const label = r.tags?.label || r.tag_id;
+    const pts = r.tags?.points ?? '';
+    li.innerHTML = `<span><b>${label}</b> <span class="muted">(${r.tag_id})</span></span><span class="muted">${new Date(r.found_at).toLocaleTimeString()}${pts!==''?` • +${pts} pts`:''}</span>`;
+    list.appendChild(li);
+  });
 }
 
 // --- Leaderboard (includes adjustments) ---
@@ -281,8 +361,9 @@ async function loadPlayers(showAll=false){
     const total = base + extra;
     const tr = document.createElement('tr');
     const phoneOk = p.phone && p.phone.startsWith("+");
+    const nickOk = p.nickname && p.nickname.trim().length>=2 && !badName(p.nickname);
     tr.innerHTML = `
-      <td>${p.nickname||p.id.slice(0,8)} ${phoneOk?'<span class="oktag">phone ✓</span>':'<span class="muted">no phone</span>'}</td>
+      <td>${nickOk ? p.nickname : (p.nickname||p.id.slice(0,8))} ${phoneOk?'<span class="oktag">phone ✓</span>':'<span class="muted">no phone</span>'} ${nickOk?'<span class="oktag">name ✓</span>':'<span class="muted">name?</span>'}</td>
       <td class="right"><b>${total}</b> <span class="muted">(tags: ${base} / adj: ${extra})</span></td>
       <td><input type="number" step="1" value="0" style="width:90px" /></td>
       <td><input type="text" placeholder="Reason (optional)" style="min-width:180px" /></td>

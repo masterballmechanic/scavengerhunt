@@ -7,15 +7,18 @@
   <title>Munchies Halloween Hunt</title>
   <style>
     body { background:#0d0d0d; color:#fff; font-family:sans-serif; margin:0; }
-    header { background:#1a1a1a; padding:10px; display:flex; justify-content:space-around; }
+    header { background:#1a1a1a; padding:10px; display:flex; justify-content:space-around; position:sticky; top:0; z-index:5 }
     header button { background:#ff6600; border:none; padding:10px 20px; border-radius:6px; font-weight:bold; cursor:pointer; }
     header button.active { background:#ffaa33; }
     section { display:none; padding:20px; }
     section.active { display:block; }
     .toast { position:fixed; bottom:10px; right:10px; background:#333; padding:10px; border-radius:5px; }
-    input, button, textarea, select { margin:5px 0; padding:8px; }
+    input, button, textarea, select { margin:5px 0; padding:10px 12px; border-radius:8px; border:1px solid #333; background:#141414; color:#fff; }
+    input::placeholder { color:#aaa; }
     .muted { color:#bbb; font-size:12px; }
     .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .warn { background:#2b1515; border:1px solid #6b1c1c; color:#ffb4b4; padding:10px 12px; border-radius:8px; margin:6px 0; }
+    .oktag { background:#0f2a1b; border:1px solid #184c31; color:#9ee0c4; padding:6px 10px; border-radius:999px; font-size:12px; display:inline-block }
     table { width:100%; border-collapse:collapse; margin-top:8px; }
     th, td { border-bottom:1px solid #2a2a2a; padding:8px; text-align:left; }
     td.right { text-align:right }
@@ -32,8 +35,13 @@
 
   <section id="play" class="active">
     <h2>🎃 Player View</h2>
-    <label>Nickname: <input id="nickname" placeholder="Enter nickname"/></label>
-    <button onclick="saveNickname()">Save</button>
+    <div id="phoneBanner" class="warn" style="display:none;">📱 Phone required to play. Enter a valid number and hit <b>Save</b>.</div>
+    <div class="row">
+      <input id="nickname" placeholder="Nickname (optional)"/>
+      <input id="phone" placeholder="Phone (e.g., 555-123-4567 or +15551234567)" inputmode="tel"/>
+      <button onclick="saveProfile()">Save</button>
+      <span id="profileOk" class="oktag" style="display:none;">Saved</span>
+    </div>
     <div><button onclick="claimTag()">👻 Log a token</button></div>
     <div id="progress" class="muted"></div>
   </section>
@@ -90,6 +98,17 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let playerId = localStorage.getItem('player_id');
 let adminUser = null;
 
+// --- phone helpers ---
+function normalizePhone(input){
+  if(!input) return "";
+  const digits = (""+input).replace(/\D+/g, "");
+  if(digits.length === 10) return "+1"+digits;     // US 10-digit -> E.164
+  if(digits.length === 11 && digits.startsWith("1")) return "+"+digits;
+  if(input.startsWith("+") && digits.length >= 10 && digits.length <= 15) return input;
+  return ""; // invalid
+}
+function isValidPhone(input){ return !!normalizePhone(input); }
+
 async function ensurePlayer() {
   if (!playerId) {
     let { data, error } = await supabase.from('players').insert({}).select().single();
@@ -97,6 +116,7 @@ async function ensurePlayer() {
     playerId = data.id;
     localStorage.setItem('player_id', playerId);
   }
+  await refreshProfileBanner();
   loadProgress();
 }
 ensurePlayer();
@@ -111,17 +131,39 @@ function show(view) {
 }
 
 // --- Player actions ---
-async function saveNickname(){
-  const nickname = document.getElementById('nickname').value;
-  await supabase.from('players').update({nickname}).eq('id',playerId);
-  toast("Nickname saved");
+async function saveProfile(){
+  const nickname = document.getElementById('nickname').value.trim();
+  const phoneRaw = document.getElementById('phone').value.trim();
+  const phone = normalizePhone(phoneRaw);
+  if(!isValidPhone(phoneRaw)){
+    toast("Enter a valid phone number"); document.getElementById('phone').focus(); return;
+  }
+  const { error } = await supabase.from('players').update({nickname, phone}).eq('id',playerId);
+  if(error){ toast("Save failed"); return; }
+  document.getElementById('profileOk').style.display='inline-block';
+  setTimeout(()=>document.getElementById('profileOk').style.display='none', 1500);
+  await refreshProfileBanner();
   loadLeaderboard();
 }
 
+async function refreshProfileBanner(){
+  const { data, error } = await supabase.from('players').select('nickname, phone').eq('id', playerId).maybeSingle();
+  const banner = document.getElementById('phoneBanner');
+  if(error || !data){ banner.style.display='block'; return; }
+  const ok = !!data.phone && isValidPhone(data.phone);
+  banner.style.display = ok ? 'none' : 'block';
+}
+
 async function claimTag(){
+  // block unless phone saved & valid
+  const { data } = await supabase.from('players').select('phone').eq('id', playerId).maybeSingle();
+  if(!data || !isValidPhone(data.phone)){
+    document.getElementById('phoneBanner').style.display='block';
+    toast("Phone required to play. Save your number first.");
+    return;
+  }
   const code = prompt("Enter tag id (e.g., GRAVEYARD-01)");
   if(!code) return;
-  await ensurePlayer();
   const tag = await supabase.from('tags').select('*').eq('id', code).maybeSingle();
   if(!tag.data) return toast("Tag not found");
   const pts = tag.data.points || 0;
@@ -139,9 +181,8 @@ async function loadProgress(){
   document.getElementById('progress').innerText = `Found: ${found} / ${total} • Points: ${points}`;
 }
 
-// --- Leaderboard with adjustments ---
+// --- Leaderboard (includes adjustments) ---
 async function loadLeaderboard(){
-  // aggregate finds
   const finds = await supabase.from('finds').select('player_id, score_awarded');
   if(finds.error) { console.error(finds.error); return; }
   const scores = new Map();
@@ -149,8 +190,6 @@ async function loadLeaderboard(){
     const key = String(r.player_id);
     scores.set(key,(scores.get(key)||0)+(r.score_awarded||0));
   });
-
-  // aggregate adjustments
   const adj = await supabase.from('adjustments').select('player_id, delta');
   if(!adj.error){
     (adj.data||[]).forEach(a=>{
@@ -158,15 +197,12 @@ async function loadLeaderboard(){
       scores.set(key,(scores.get(key)||0)+(a.delta||0));
     });
   }
-
   const ids = Array.from(scores.keys());
   if(ids.length===0) { document.getElementById('leaders').innerHTML = "<div class='muted'>No plays yet</div>"; return; }
-
   const players = await supabase.from('players').select('id,nickname').in('id', ids);
   let names = {};
   if(players.error) { console.warn("players read error:", players.error); }
   (players.data||[]).forEach(p=> names[String(p.id)] = p.nickname || "");
-
   const arr = ids.map(id=>({ id, name: names[id]||id.slice(0,8), pts: scores.get(id) }))
                  .sort((a,b)=>b.pts-a.pts).slice(0,50);
   document.getElementById('leaders').innerHTML = arr.map((r,i)=>`<div>${i+1}. <b>${r.name}</b> — ${r.pts} pts</div>`).join("");
@@ -191,7 +227,6 @@ async function checkAdminSession(){
   }
   adminUser = user;
   document.getElementById('whoami').innerText = user.email;
-  // verify admin
   const admin = await supabase.from('admins').select('user_id').eq('user_id', user.id).maybeSingle();
   if(!admin.data){
     toast("This account is not whitelisted as admin");
@@ -211,7 +246,6 @@ async function signOut(){
   document.getElementById('admin-login').style.display='block';
 }
 
-// --- Admin data ---
 async function loadAdmin(){
   const tags = await supabase.from('tags').select('*').order('id');
   document.getElementById('tag-list').innerHTML = (tags.data||[]).map(t=>`<div>${t.id} — ${t.label||''} (${t.points||0} pts)</div>`).join("");
@@ -219,23 +253,19 @@ async function loadAdmin(){
   document.getElementById('live-finds').innerHTML = (finds.data||[]).map(f=>`<div>${new Date(f.found_at).toLocaleTimeString()} — ${f.tag_id} (+${f.score_awarded})</div>`).join("");
 }
 
-// --- Admin: player list + adjustments ---
-function sumBy(arr, key){ return (arr||[]).reduce((a,x)=>a+(x[key]||0),0); }
-
+// --- Admin: players + adjustments ---
 async function loadPlayers(showAll=false){
-  // get base players (limit for perf)
-  const q = supabase.from('players').select('id,nickname').order('created_at',{ascending:false});
+  const q = supabase.from('players').select('id,nickname,phone').order('created_at',{ascending:false});
   let players;
   const term = document.getElementById('searchName').value.trim();
   if(showAll){ players = await q.limit(200); }
-  else if(term){ players = await supabase.from('players').select('id,nickname').ilike('nickname', `%${term}%`).limit(100); }
+  else if(term){ players = await supabase.from('players').select('id,nickname,phone').ilike('nickname', `%${term}%`).limit(100); }
   else { players = await q.limit(50); }
 
   if(players.error){ document.getElementById('playersTable').innerHTML = "<tr><td colspan='5'>Error loading players</td></tr>"; return; }
   const ids = (players.data||[]).map(p=>p.id);
   if(ids.length===0){ document.getElementById('playersTable').innerHTML = "<tr><td colspan='5' class='muted'>No players found</td></tr>"; return; }
 
-  // aggregate points from finds + adjustments
   const [f, a] = await Promise.all([
     supabase.from('finds').select('player_id, score_awarded').in('player_id', ids),
     supabase.from('adjustments').select('player_id, delta').in('player_id', ids)
@@ -250,8 +280,9 @@ async function loadPlayers(showAll=false){
     const extra = adjBy.get(p.id)||0;
     const total = base + extra;
     const tr = document.createElement('tr');
+    const phoneOk = p.phone && p.phone.startsWith("+");
     tr.innerHTML = `
-      <td>${p.nickname||p.id.slice(0,8)}</td>
+      <td>${p.nickname||p.id.slice(0,8)} ${phoneOk?'<span class="oktag">phone ✓</span>':'<span class="muted">no phone</span>'}</td>
       <td class="right"><b>${total}</b> <span class="muted">(tags: ${base} / adj: ${extra})</span></td>
       <td><input type="number" step="1" value="0" style="width:90px" /></td>
       <td><input type="text" placeholder="Reason (optional)" style="min-width:180px" /></td>

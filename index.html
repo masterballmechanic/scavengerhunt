@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -100,7 +101,7 @@ async function claimTag(){
   const pts = tag.data.points || 0;
   const { error } = await supabase.from('finds').insert({ player_id:playerId, tag_id:code, score_awarded: pts });
   if(error) toast("Error: "+error.message);
-  else { toast("Logged "+code+" (+"+pts+" pts)"); loadProgress(); loadLeaderboard(); }
+  else { toast(`Logged ${code} (+${pts} pts)`); loadProgress(); loadLeaderboard(); }
 }
 
 async function loadProgress(){
@@ -138,7 +139,7 @@ async function loadLeaderboard(){
 
   const arr = ids.map(id=>({ id, name: names[id]||id.slice(0,8), pts: scores.get(id) }))
                  .sort((a,b)=>b.pts-a.pts).slice(0,20);
-  document.getElementById('leaders').innerHTML = arr.map((r,i)=>`<div>{i+1}. <b>{r.name}</b> — {r.pts} pts</div>`).join("");
+  document.getElementById('leaders').innerHTML = arr.map((r,i)=>`<div>${i+1}. <b>${r.name}</b> — ${r.pts} pts</div>`).join("");
 }
 
 // Admin login (OTP)
@@ -161,9 +162,9 @@ async function verifyLogin(){
 
 async function loadAdmin(){
   const tags = await supabase.from('tags').select('*').order('id');
-  document.getElementById('tag-list').innerHTML = (tags.data||[]).map(t=>`<div>{t.id} — {t.label||''} ({t.points||0} pts)</div>`).join("");
+  document.getElementById('tag-list').innerHTML = (tags.data||[]).map(t=>`<div>${t.id} — ${t.label||''} (${t.points||0} pts)</div>`).join("");
   const finds = await supabase.from('finds').select('found_at, tag_id, score_awarded').order('found_at', { ascending:false }).limit(10);
-  document.getElementById('live-finds').innerHTML = (finds.data||[]).map(f=>`<div>{new Date(f.found_at).toLocaleTimeString()} — {f.tag_id} (+{f.score_awarded})</div>`).join("");
+  document.getElementById('live-finds').innerHTML = (finds.data||[]).map(f=>`<div>${new Date(f.found_at).toLocaleTimeString()} — ${f.tag_id} (+${f.score_awarded})</div>`).join("");
 }
 </script>
 </body>

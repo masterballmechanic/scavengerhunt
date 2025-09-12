@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -14,6 +13,7 @@
     section.active { display:block; }
     .toast { position:fixed; bottom:10px; right:10px; background:#333; padding:10px; border-radius:5px; }
     input, button, textarea { margin:5px 0; padding:8px; }
+    .muted { color:#bbb; font-size:12px; }
   </style>
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 </head>
@@ -29,7 +29,7 @@
     <label>Nickname: <input id="nickname" placeholder="Enter nickname"/></label>
     <button onclick="saveNickname()">Save</button>
     <div><button onclick="claimTag()">👻 Log a token</button></div>
-    <div id="progress"></div>
+    <div id="progress" class="muted"></div>
   </section>
 
   <section id="admin">
@@ -37,9 +37,10 @@
     <div id="admin-login">
       <input id="admin-email" placeholder="Email"/><br/>
       <button onclick="sendLogin()">Send OTP</button>
+      <div class="muted">Make sure your Pages URL is in Supabase → Auth → URL Configuration (Site URL + Redirect URLs).</div>
     </div>
     <div id="admin-otp" style="display:none;">
-      <input id="admin-code" placeholder="Enter OTP Code"/><br/>
+      <input id="admin-code" placeholder="Enter 6-digit code"/><br/>
       <button onclick="verifyLogin()">Verify</button>
     </div>
     <div id="admin-panel" style="display:none;">
@@ -59,7 +60,7 @@
 
 <script>
 const SUPABASE_URL = "https://oeahpsbnazvijogyxedu.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9lYWhwc2JuYXp2aWpvZ3l4ZWR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc2MzIxMDQsImV4cCI6MjA3MzIwODEwNH0.FFx6EfbVu2FGGdsfLHGAUASSfsek679Q1z5gDcYqaPE"; // replace with your real anon key
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9lYWhwc2JuYXp2aWpvZ3l4ZWR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc2MzIxMDQsImV4cCI6MjA3MzIwODEwNH0.FFx6EfbVu2FGGdsfLHGAUASSfsek679Q1z5gDcYqaPE"; // baked-in anon public key
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let playerId = localStorage.getItem('player_id');
@@ -67,11 +68,11 @@ let playerId = localStorage.getItem('player_id');
 async function ensurePlayer() {
   if (!playerId) {
     let { data, error } = await supabase.from('players').insert({}).select().single();
-    if (!error && data) {
-      playerId = data.id;
-      localStorage.setItem('player_id', playerId);
-    }
+    if (error) { console.error(error); toast("Player create failed"); return; }
+    playerId = data.id;
+    localStorage.setItem('player_id', playerId);
   }
+  loadProgress();
 }
 ensurePlayer();
 
@@ -80,22 +81,35 @@ function show(view) {
   document.getElementById(view).classList.add('active');
   document.querySelectorAll('header button').forEach(b=>b.classList.remove('active'));
   document.getElementById('btn-'+view).classList.add('active');
+  if(view==='leaderboard') loadLeaderboard();
 }
 
 async function saveNickname(){
   const nickname = document.getElementById('nickname').value;
-  if(!nickname) return;
   await supabase.from('players').update({nickname}).eq('id',playerId);
   toast("Nickname saved");
+  loadLeaderboard();
 }
 
 async function claimTag(){
   const code = prompt("Enter tag id (e.g., GRAVEYARD-01)");
   if(!code) return;
   await ensurePlayer();
-  const { data, error } = await supabase.from('finds').insert({ player_id:playerId, tag_id:code }).select().single();
+  const tag = await supabase.from('tags').select('*').eq('id', code).maybeSingle();
+  if(!tag.data) return toast("Tag not found");
+  const pts = tag.data.points || 0;
+  const { error } = await supabase.from('finds').insert({ player_id:playerId, tag_id:code, score_awarded: pts });
   if(error) toast("Error: "+error.message);
-  else toast("Logged "+code);
+  else { toast("Logged "+code+" (+"+pts+" pts)"); loadProgress(); loadLeaderboard(); }
+}
+
+async function loadProgress(){
+  const tags = await supabase.from('tags').select('*').eq('active', true);
+  const finds = await supabase.from('finds').select('tag_id, score_awarded').eq('player_id', playerId);
+  const total = (tags.data||[]).length;
+  const found = new Set((finds.data||[]).map(f=>f.tag_id)).size;
+  const points = (finds.data||[]).reduce((a,f)=>a+(f.score_awarded||0),0);
+  document.getElementById('progress').innerText = `Found: ${found} / ${total} • Points: ${points}`;
 }
 
 function toast(msg){
@@ -105,38 +119,51 @@ function toast(msg){
   setTimeout(()=>t.style.display='none',3000);
 }
 
+// Leaderboard (robust: handles numeric/uuid ids, checks errors, uses string keys)
 async function loadLeaderboard(){
-  // Fallback: simple aggregate if RPC leaderboard not defined
-  const { data, error } = await supabase
-    .from('finds')
-    .select('player_id, tags(points)')
-    .limit(50);
-  if(error){ document.getElementById('leaders').innerText="Error "+error.message; return; }
-  const scores = {};
-  data.forEach(f=>{
-    const pts = f.tags? f.tags.points : 0;
-    scores[f.player_id] = (scores[f.player_id]||0)+pts;
+  const finds = await supabase.from('finds').select('player_id, score_awarded');
+  if(finds.error) { console.error(finds.error); return; }
+  const scores = new Map();
+  (finds.data||[]).forEach(r=>{
+    const key = String(r.player_id);
+    scores.set(key,(scores.get(key)||0)+(r.score_awarded||0));
   });
-  const arr = Object.entries(scores).map(([id,pts])=>({id,pts})).sort((a,b)=>b.pts-a.pts);
-  document.getElementById('leaders').innerHTML = arr.map((p,i)=>`<div>${i+1}. ${p.id.substring(0,5)} - ${p.pts} pts</div>`).join("");
-}
-setInterval(loadLeaderboard,15000);
-loadLeaderboard();
+  const ids = Array.from(scores.keys());
+  if(ids.length===0) { document.getElementById('leaders').innerHTML = "<div class='muted'>No plays yet</div>"; return; }
 
-// Admin login
+  const players = await supabase.from('players').select('id,nickname').in('id', ids);
+  let names = {};
+  if(players.error) { console.warn("players read error:", players.error); }
+  (players.data||[]).forEach(p=> names[String(p.id)] = p.nickname || "");
+
+  const arr = ids.map(id=>({ id, name: names[id]||id.slice(0,8), pts: scores.get(id) }))
+                 .sort((a,b)=>b.pts-a.pts).slice(0,20);
+  document.getElementById('leaders').innerHTML = arr.map((r,i)=>`<div>{i+1}. <b>{r.name}</b> — {r.pts} pts</div>`).join("");
+}
+
+// Admin login (OTP)
 async function sendLogin(){
-  const email = document.getElementById('admin-email').value;
-  const { error } = await supabase.auth.signInWithOtp({ email });
+  const email = document.getElementById('admin-email').value.trim();
+  if(!email) return toast("Enter email");
+  const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: location.href } });
   if(error) toast("Error sending OTP: "+error.message);
   else { toast("Check your email for OTP"); document.getElementById('admin-otp').style.display='block'; }
 }
 
 async function verifyLogin(){
-  const email = document.getElementById('admin-email').value;
-  const code = document.getElementById('admin-code').value;
-  const { data, error } = await supabase.auth.verifyOtp({ email, token: code, type: 'magiclink' });
+  const email = document.getElementById('admin-email').value.trim();
+  const code = document.getElementById('admin-code').value.trim();
+  if(!email || !code) return;
+  const { data, error } = await supabase.auth.verifyOtp({ email, token: code, type: 'email' });
   if(error) toast("Login failed: "+error.message);
-  else { toast("Admin logged in"); document.getElementById('admin-panel').style.display='block'; }
+  else { toast("Admin logged in"); document.getElementById('admin-panel').style.display='block'; loadAdmin(); }
+}
+
+async function loadAdmin(){
+  const tags = await supabase.from('tags').select('*').order('id');
+  document.getElementById('tag-list').innerHTML = (tags.data||[]).map(t=>`<div>{t.id} — {t.label||''} ({t.points||0} pts)</div>`).join("");
+  const finds = await supabase.from('finds').select('found_at, tag_id, score_awarded').order('found_at', { ascending:false }).limit(10);
+  document.getElementById('live-finds').innerHTML = (finds.data||[]).map(f=>`<div>{new Date(f.found_at).toLocaleTimeString()} — {f.tag_id} (+{f.score_awarded})</div>`).join("");
 }
 </script>
 </body>

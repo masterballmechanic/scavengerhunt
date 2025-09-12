@@ -112,7 +112,7 @@
 
 <script>
 const SUPABASE_URL = "https://oeahpsbnazvijogyxedu.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9lYWhwc2JuYXp2aWpvZ3l4ZWR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc2MzIxMDQsImV4cCI6MjA3MzIwODEwNH0.FFx6EfbVu2FGGdsfLHGAUASSfsek679Q1z5gDcYqaPE"; // baked-in anon public key
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9lYWhwc2JuYXp2aWpvZ3l4ZWR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc2MzIxMDQsImV4cCI6MjA3MzIwODEwNH0.FFx6EfbVu2FGGdsfLHGAUASSfsek679Q1z5gDcYqaPE";
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const qs = new URLSearchParams(location.search);
@@ -121,7 +121,7 @@ const incomingTag = (qs.get("tag") || "").trim().toUpperCase();
 let playerId = localStorage.getItem('player_id');
 let adminUser = null;
 
-// --- nickname profanity/world-leader filter (simple) ---
+// --- nickname filter (profanity/world leaders) ---
 const banned = [
   "fuck","shit","bitch","cunt","asshole","bastard","dick","cock","pussy","twat","slut","whore","prick","bollocks","bugger","arse","damn","goddamn","hell",
   "hitler","stalin","mussolini","putin","lenin","mao","kim jong","kim jong un","xi jinping","trump","donald trump","biden","joe biden","obama","barack",
@@ -134,10 +134,10 @@ function cleanName(s){ return (s||"").replace(/\s+/g," ").trim(); }
 function normalizePhone(input){
   if(!input) return "";
   const digits = (""+input).replace(/\D+/g, "");
-  if(digits.length === 10) return "+1"+digits;     // US 10-digit -> E.164
+  if(digits.length === 10) return "+1"+digits;
   if(digits.length === 11 && digits.startsWith("1")) return "+"+digits;
   if((input.startsWith("+") && digits.length >= 10 && digits.length <= 15)) return "+"+digits;
-  return ""; // invalid
+  return "";
 }
 function isValidPhone(input){ return !!normalizePhone(input); }
 
@@ -148,10 +148,8 @@ async function ensurePlayer() {
     playerId = data.id;
     localStorage.setItem('player_id', playerId);
   }
-  // If they arrived with a tag and profile is not ready, store tag as pending
   if(incomingTag){ localStorage.setItem('pending_tag', incomingTag); }
   await renderPlay();
-  // If profile is already complete AND tag present, auto-claim
   if(incomingTag){ await tryAutoClaimPending(); }
 }
 ensurePlayer();
@@ -165,28 +163,28 @@ function show(view) {
   if(view==='admin') checkAdminSession();
 }
 
-// --- PLAY RENDER: swaps between editor vs summary ---
+// --- PLAY RENDER (patched to always show editor on errors) ---
 async function renderPlay(){
-  const profile = await supabase.from('players').select('nickname, phone').eq('id', playerId).maybeSingle();
-  const data = profile.data || {};
+  const res = await supabase.from('players').select('nickname, phone').eq('id', playerId).maybeSingle();
+  let data = res.data || {};
+  if(res.error){
+    console.warn("players read error:", res.error);
+    data = { nickname: "", phone: "" };
+  }
   const nickname = cleanName(data.nickname||"");
   const phoneOk = !!data.phone && isValidPhone(data.phone);
   const nickOk = !!nickname && nickname.length>=2 && !badName(nickname);
   const ok = phoneOk && nickOk;
 
-  // banner
   document.getElementById('profileBanner').style.display = ok ? 'none' : 'block';
-
-  // toggle editor vs summary
   document.getElementById('profileEditor').style.display = ok ? 'none' : 'block';
   document.getElementById('profileSummary').style.display = ok ? 'block' : 'none';
+
   if(ok){
     document.getElementById('summaryNick').innerText = nickname;
   } else {
-    // prefill inputs if partially saved
     document.getElementById('nickname').value = nickname;
     document.getElementById('phone').value = data.phone || "";
-    // if a pending tag exists, show a note to encourage saving
     const p = localStorage.getItem('pending_tag');
     const note = document.getElementById('pendingNote');
     if(p){ note.innerText = `You scanned: ${p}. Save your profile to log it.`; note.style.display='block'; }
@@ -194,10 +192,10 @@ async function renderPlay(){
   }
 
   await loadProgress();
-  await loadMyFinds(); // always show the list
+  await loadMyFinds();
 }
 
-// --- Save profile (then lock UI) ---
+// --- Save profile ---
 async function saveProfile(){
   let nickname = cleanName(document.getElementById('nickname').value);
   const phoneRaw = document.getElementById('phone').value.trim();
@@ -209,7 +207,7 @@ async function saveProfile(){
   if(!isValidPhone(phoneRaw)){ toast("Enter a valid phone number"); document.getElementById('phone').focus(); return; }
 
   const { error } = await supabase.from('players').update({nickname, phone}).eq('id',playerId);
-  if(error){ toast("Save failed"); return; }
+  if(error){ toast("Save failed: "+error.message); return; }
   document.getElementById('profileOk').style.display='inline-block';
   setTimeout(()=>document.getElementById('profileOk').style.display='none', 1200);
   await renderPlay();
@@ -217,18 +215,15 @@ async function saveProfile(){
   loadLeaderboard();
 }
 
-// --- Auto-claim pending tag after profile is complete ---
+// --- Auto-claim pending tag ---
 async function tryAutoClaimPending(){
   const p = (localStorage.getItem('pending_tag') || "").trim().toUpperCase();
   if(!p) return;
-  // Check profile
   const { data } = await supabase.from('players').select('nickname, phone').eq('id', playerId).maybeSingle();
   const ok = data && data.nickname && data.nickname.trim().length>=2 && !badName(data.nickname) && data.phone && isValidPhone(data.phone);
   if(!ok){ return; }
-  // Prevent duplicates
   const prior = await supabase.from('finds').select('id').eq('player_id', playerId).eq('tag_id', p).maybeSingle();
   if(prior.data){ localStorage.removeItem('pending_tag'); history.replaceState({}, "", location.pathname+"?v=play"); return; }
-  // Validate tag
   const tag = await supabase.from('tags').select('*').eq('id', p).maybeSingle();
   if(!tag.data || !tag.data.active){ toast("Invalid or inactive token"); localStorage.removeItem('pending_tag'); history.replaceState({}, "", location.pathname+"?v=play"); return; }
   const pts = tag.data.points || 0;
@@ -248,7 +243,6 @@ async function loadProgress(){
   document.getElementById('progress').innerText = `Found: ${found} / ${total} • Points: ${points}`;
 }
 
-// Show a player's own finds
 async function loadMyFinds(){
   const { data, error } = await supabase
     .from('finds')

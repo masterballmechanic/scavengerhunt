@@ -15,6 +15,7 @@
     .toast { position:fixed; bottom:10px; right:10px; background:#333; padding:10px; border-radius:5px; }
     input, button, textarea { margin:5px 0; padding:8px; }
     .muted { color:#bbb; font-size:12px; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
   </style>
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 </head>
@@ -34,17 +35,19 @@
   </section>
 
   <section id="admin">
-    <h2>🔑 Admin Login</h2>
+    <h2>🔐 Admin Login (Password)</h2>
     <div id="admin-login">
-      <input id="admin-email" placeholder="Email"/><br/>
-      <button onclick="sendLogin()">Send OTP</button>
-      <div class="muted">Make sure your Pages URL is in Supabase → Auth → URL Configuration (Site URL + Redirect URLs).</div>
-    </div>
-    <div id="admin-otp" style="display:none;">
-      <input id="admin-code" placeholder="Enter 6-digit code"/><br/>
-      <button onclick="verifyLogin()">Verify</button>
+      <div class="row">
+        <input id="admin-email" placeholder="Email" autocomplete="username"/>
+        <input id="admin-pass" placeholder="Password" type="password" autocomplete="current-password"/>
+        <button onclick="loginPassword()">Login</button>
+      </div>
+      <div class="muted">Only whitelisted accounts can manage tags. No email links; password only.</div>
     </div>
     <div id="admin-panel" style="display:none;">
+      <div class="row">
+        <button onclick="signOut()">🚪 Sign out</button>
+      </div>
       <h3>Tags</h3>
       <div id="tag-list"></div>
       <h3>Live Finds</h3>
@@ -83,8 +86,10 @@ function show(view) {
   document.querySelectorAll('header button').forEach(b=>b.classList.remove('active'));
   document.getElementById('btn-'+view).classList.add('active');
   if(view==='leaderboard') loadLeaderboard();
+  if(view==='admin') checkAdminSession();
 }
 
+// --- Player actions ---
 async function saveNickname(){
   const nickname = document.getElementById('nickname').value;
   await supabase.from('players').update({nickname}).eq('id',playerId);
@@ -113,14 +118,7 @@ async function loadProgress(){
   document.getElementById('progress').innerText = `Found: ${found} / ${total} • Points: ${points}`;
 }
 
-function toast(msg){
-  const t=document.getElementById('toast');
-  t.innerText=msg;
-  t.style.display='block';
-  setTimeout(()=>t.style.display='none',3000);
-}
-
-// Leaderboard (robust: handles numeric/uuid ids, checks errors, uses string keys)
+// --- Leaderboard ---
 async function loadLeaderboard(){
   const finds = await supabase.from('finds').select('player_id, score_awarded');
   if(finds.error) { console.error(finds.error); return; }
@@ -142,22 +140,41 @@ async function loadLeaderboard(){
   document.getElementById('leaders').innerHTML = arr.map((r,i)=>`<div>${i+1}. <b>${r.name}</b> — ${r.pts} pts</div>`).join("");
 }
 
-// Admin login (OTP)
-async function sendLogin(){
+// --- Admin (password) ---
+async function loginPassword(){
   const email = document.getElementById('admin-email').value.trim();
-  if(!email) return toast("Enter email");
-  const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: location.href } });
-  if(error) toast("Error sending OTP: "+error.message);
-  else { toast("Check your email for OTP"); document.getElementById('admin-otp').style.display='block'; }
+  const password = document.getElementById('admin-pass').value;
+  if(!email || !password){ toast("Enter email & password"); return; }
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if(error){ toast("Login failed: "+error.message); return; }
+  await checkAdminSession();
 }
 
-async function verifyLogin(){
-  const email = document.getElementById('admin-email').value.trim();
-  const code = document.getElementById('admin-code').value.trim();
-  if(!email || !code) return;
-  const { data, error } = await supabase.auth.verifyOtp({ email, token: code, type: 'email' });
-  if(error) toast("Login failed: "+error.message);
-  else { toast("Admin logged in"); document.getElementById('admin-panel').style.display='block'; loadAdmin(); }
+async function checkAdminSession(){
+  const { data: { user } } = await supabase.auth.getUser();
+  if(!user){
+    document.getElementById('admin-panel').style.display='none';
+    document.getElementById('admin-login').style.display='block';
+    return;
+  }
+  // Optional: validate the user is in 'admins' table
+  const admin = await supabase.from('admins').select('user_id').eq('user_id', user.id).maybeSingle();
+  if(!admin.data){
+    toast("This account is not whitelisted as admin");
+    await supabase.auth.signOut();
+    document.getElementById('admin-panel').style.display='none';
+    document.getElementById('admin-login').style.display='block';
+    return;
+  }
+  document.getElementById('admin-login').style.display='none';
+  document.getElementById('admin-panel').style.display='block';
+  loadAdmin();
+}
+
+async function signOut(){
+  await supabase.auth.signOut();
+  document.getElementById('admin-panel').style.display='none';
+  document.getElementById('admin-login').style.display='block';
 }
 
 async function loadAdmin(){

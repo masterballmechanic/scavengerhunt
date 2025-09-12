@@ -31,7 +31,306 @@
     .item:last-child { border-bottom:none }
     .center { text-align:center }
   </style>
-  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2" defer></script>
+  <script defer>
+  // Minimal error reporter so we see parse/runtime errors on page
+  window.onerror = function(msg, src, line, col, err){
+    const t=document.getElementById('toast');
+    if(t){ t.innerText = 'JS error: ' + msg; t.style.display='block'; }
+    console.error('JS error', msg, src, line, col, err);
+  };
+  </script>
+  <script defer>
+  (function(){
+    const SUPABASE_URL = "https://oeahpsbnazvijogyxedu.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9lYWhwc2JuYXp2aWpvZ3l4ZWR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc2MzIxMDQsImV4cCI6MjA3MzIwODEwNH0.FFx6EfbVu2FGGdsfLHGAUASSfsek679Q1z5gDcYqaPE";
+    let supabaseClient;
+
+    function ready(fn){ if(document.readyState!=='loading') fn(); else document.addEventListener('DOMContentLoaded', fn); }
+    ready(init);
+
+    function $(id){ return document.getElementById(id); }
+
+    function toast(msg){
+      const t=$('toast'); if(!t) return;
+      t.innerText=msg; t.style.display='block'; setTimeout(()=>t.style.display='none',3000);
+    }
+
+    function badName(s){ if(!s) return true;
+      const banned = ["fuck","shit","bitch","cunt","asshole","bastard","dick","cock","pussy","twat","slut","whore","prick","bollocks","bugger","arse","damn","goddamn","hell",
+        "hitler","stalin","mussolini","putin","lenin","mao","kim jong","kim jong un","xi jinping","trump","donald trump","biden","joe biden","obama","barack",
+        "bush","reagan","saddam","bin laden","gaddafi","pol pot","castro","netanyahu","modi","erdogan","bolsonaro","assad","duarte","mohammed bin"];
+      const t=s.toLowerCase(); return banned.some(w=>t.includes(w));
+    }
+    function cleanName(s){ return (s||"").replace(/\s+/g," ").trim(); }
+    function normalizePhone(input){
+      if(!input) return "";
+      const digits = (""+input).replace(/\D+/g, "");
+      if(digits.length === 10) return "+1"+digits;
+      if(digits.length === 11 && digits.startsWith("1")) return "+"+digits;
+      if(((""+input).startsWith("+") && digits.length >= 10 && digits.length <= 15)) return "+"+digits;
+      return "";
+    }
+    function isValidPhone(input){ return !!normalizePhone(input); }
+
+    let playerId = null;
+    let incomingTag = null;
+
+    function show(view){
+      document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+      $(view).classList.add('active');
+      document.querySelectorAll('header button').forEach(b=>b.classList.remove('active'));
+      $('btn-'+view).classList.add('active');
+      if(view==='leaderboard') loadLeaderboard();
+      if(view==='admin') checkAdminSession();
+    }
+    window.show = show; // expose for buttons
+
+    async function init(){
+      try{
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      }catch(e){
+        toast('Failed to init Supabase'); console.error(e); return;
+      }
+      const qs = new URLSearchParams(location.search);
+      incomingTag = (qs.get('tag')||'').trim().toUpperCase();
+      playerId = localStorage.getItem('player_id');
+
+      await ensurePlayer();
+      await renderPlay();
+      if(incomingTag) await tryAutoClaimPending();
+    }
+
+    async function ensurePlayer(){
+      if(!playerId){
+        const { data, error } = await supabaseClient.from('players').insert({}).select().single();
+        if(error){ console.error(error); toast("Player create failed"); return; }
+        playerId = data.id; localStorage.setItem('player_id', playerId);
+      }
+      if(incomingTag){ localStorage.setItem('pending_tag', incomingTag); }
+    }
+
+    async function renderPlay(){
+      const res = await supabaseClient.from('players').select('nickname, phone').eq('id', playerId).maybeSingle();
+      let data = res.data || {};
+      if(res.error){ console.warn("players read error:", res.error); data = { nickname: "", phone: "" }; }
+      const nickname = cleanName(data.nickname||"");
+      const phoneOk = !!data.phone && isValidPhone(data.phone);
+      const nickOk = !!nickname && nickname.length>=2 && !badName(nickname);
+      const ok = phoneOk && nickOk;
+
+      $('profileBanner').style.display = ok ? 'none' : 'block';
+      $('profileEditor').style.display = ok ? 'none' : 'block';
+      $('profileSummary').style.display = ok ? 'block' : 'none';
+
+      if(ok){
+        $('summaryNick').innerText = nickname;
+      } else {
+        $('nickname').value = nickname;
+        $('phone').value = data.phone || "";
+        const p = localStorage.getItem('pending_tag');
+        const note = $('pendingNote');
+        if(p){ note.innerText = `You scanned: ${p}. Save your profile to log it.`; note.style.display='block'; }
+        else { note.style.display='none'; }
+      }
+
+      await loadProgress();
+      await loadMyFinds();
+    }
+
+    window.saveProfile = async function saveProfile(){
+      let nickname = cleanName($('nickname').value);
+      const phoneRaw = $('phone').value.trim();
+      const phone = normalizePhone(phoneRaw);
+
+      if(!nickname){ toast("Nickname is required"); $('nickname').focus(); return; }
+      if(nickname.length < 2){ toast("Nickname must be at least 2 chars"); $('nickname').focus(); return; }
+      if(badName(nickname)){ toast("Please choose a different nickname"); $('nickname').focus(); return; }
+      if(!isValidPhone(phoneRaw)){ toast("Enter a valid phone number"); $('phone').focus(); return; }
+
+      const { error } = await supabaseClient.from('players').update({nickname, phone}).eq('id',playerId);
+      if(error){ toast("Save failed: "+error.message); return; }
+      $('profileOk').style.display='inline-block';
+      setTimeout(()=>$('profileOk').style.display='none', 1200);
+      await renderPlay();
+      await tryAutoClaimPending();
+      loadLeaderboard();
+    }
+
+    async function tryAutoClaimPending(){
+      const p = (localStorage.getItem('pending_tag') || "").trim().toUpperCase();
+      if(!p) return;
+      const { data } = await supabaseClient.from('players').select('nickname, phone').eq('id', playerId).maybeSingle();
+      const ok = data && data.nickname && data.nickname.trim().length>=2 && !badName(data.nickname) && data.phone && isValidPhone(data.phone);
+      if(!ok){ return; }
+      const prior = await supabaseClient.from('finds').select('id').eq('player_id', playerId).eq('tag_id', p).maybeSingle();
+      if(prior.data){ localStorage.removeItem('pending_tag'); history.replaceState({}, "", location.pathname+"?v=play"); return; }
+      const tag = await supabaseClient.from('tags').select('*').eq('id', p).maybeSingle();
+      if(!tag.data || !tag.data.active){ toast("Invalid or inactive token"); localStorage.removeItem('pending_tag'); history.replaceState({}, "", location.pathname+"?v=play"); return; }
+      const pts = tag.data.points || 0;
+      const { error } = await supabaseClient.from('finds').insert({ player_id:playerId, tag_id:p, score_awarded: pts });
+      if(error) toast("Log failed: "+error.message);
+      else { toast(`Logged ${p} (+${pts} pts)`); await loadProgress(); await loadMyFinds(); }
+      localStorage.removeItem('pending_tag');
+      history.replaceState({}, "", location.pathname+"?v=play");
+    }
+
+    async function loadProgress(){
+      const tags = await supabaseClient.from('tags').select('*').eq('active', true);
+      const finds = await supabaseClient.from('finds').select('tag_id, score_awarded').eq('player_id', playerId);
+      const total = (tags.data||[]).length;
+      const found = new Set((finds.data||[]).map(f=>f.tag_id)).size;
+      const points = (finds.data||[]).reduce((a,f)=>a+(f.score_awarded||0),0);
+      $('progress').innerText = `Found: ${found} / ${total} • Points: ${points}`;
+    }
+
+    async function loadMyFinds(){
+      const { data, error } = await supabaseClient
+        .from('finds')
+        .select('found_at, tag_id, tags(label, points)')
+        .eq('player_id', playerId)
+        .order('found_at', { ascending:false });
+      const list = $('myFinds');
+      const empty = $('noFinds');
+      list.innerHTML = "";
+      if(error || !data || !data.length){ empty.style.display='block'; return; }
+      empty.style.display='none';
+      data.forEach(r=>{
+        const li = document.createElement('li');
+        li.className = 'item';
+        const label = (r.tags && r.tags.label) ? r.tags.label : r.tag_id;
+        const pts = (r.tags && typeof r.tags.points!=='undefined') ? r.tags.points : '';
+        li.innerHTML = `<span><b>${label}</b> <span class="muted">(${r.tag_id})</span></span><span class="muted">${new Date(r.found_at).toLocaleTimeString()}${pts!==''?` • +${pts} pts`:''}</span>`;
+        list.appendChild(li);
+      });
+    }
+
+    async function loadLeaderboard(){
+      const finds = await supabaseClient.from('finds').select('player_id, score_awarded');
+      if(finds.error) { console.error(finds.error); return; }
+      const scores = new Map();
+      (finds.data||[]).forEach(r=>{
+        const key = String(r.player_id);
+        scores.set(key,(scores.get(key)||0)+(r.score_awarded||0));
+      });
+      const adj = await supabaseClient.from('adjustments').select('player_id, delta');
+      if(!adj.error){
+        (adj.data||[]).forEach(a=>{
+          const key = String(a.player_id);
+          scores.set(key,(scores.get(key)||0)+(a.delta||0));
+        });
+      }
+      const ids = Array.from(scores.keys());
+      if(ids.length===0) { $('leaders').innerHTML = "<div class='muted'>No plays yet</div>"; return; }
+      const players = await supabaseClient.from('players').select('id,nickname').in('id', ids);
+      let names = {};
+      if(players.error) { console.warn("players read error:", players.error); }
+      (players.data||[]).forEach(p=> names[String(p.id)] = p.nickname || "");
+      const arr = ids.map(id=>({ id, name: names[id]||id.slice(0,8), pts: scores.get(id) }))
+                     .sort((a,b)=>b.pts-a.pts).slice(0,50);
+      $('leaders').innerHTML = arr.map((r,i)=>`<div>${i+1}. <b>${r.name}</b> — ${r.pts} pts</div>`).join("");
+    }
+
+    async function doAdminLogin(e){
+      e.preventDefault();
+      const email = $('admin-email').value.trim();
+      const password = $('admin-pass').value;
+      if(!email || !password){ toast("Enter email & password"); return; }
+      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if(error){ toast("Login failed: "+error.message); return; }
+      await checkAdminSession();
+    }
+    window.doAdminLogin = doAdminLogin;
+
+    async function checkAdminSession(){
+      const { data: { user } } = await supabaseClient.auth.getUser();
+      if(!user){
+        $('admin-panel').style.display='none';
+        $('admin-login').style.display='block';
+        return;
+      }
+      $('whoami').innerText = user.email;
+      const admin = await supabaseClient.from('admins').select('user_id').eq('user_id', user.id).maybeSingle();
+      if(!admin.data){
+        toast("This account is not whitelisted as admin");
+        await supabaseClient.auth.signOut();
+        $('admin-panel').style.display='none';
+        $('admin-login').style.display='block';
+        return;
+      }
+      $('admin-login').style.display='none';
+      $('admin-panel').style.display='block';
+      await Promise.all([loadAdmin(), loadPlayers(true)]);
+    }
+
+    async function signOut(){
+      await supabaseClient.auth.signOut();
+      $('admin-panel').style.display='none';
+      $('admin-login').style.display='block';
+    }
+    window.signOut = signOut;
+
+    async function loadAdmin(){
+      const tags = await supabaseClient.from('tags').select('*').order('id');
+      $('tag-list').innerHTML = (tags.data||[]).map(t=>`<div>${t.id} — ${t.label||''} (${t.points||0} pts)</div>`).join("");
+      const finds = await supabaseClient.from('finds').select('found_at, tag_id, score_awarded').order('found_at', { ascending:false }).limit(10);
+      $('live-finds').innerHTML = (finds.data||[]).map(f=>`<div>${new Date(f.found_at).toLocaleTimeString()} — ${f.tag_id} (+${f.score_awarded})</div>`).join("");
+    }
+
+    async function loadPlayers(showAll=false){
+      const q = supabaseClient.from('players').select('id,nickname,phone').order('created_at',{ascending:false});
+      let players;
+      const term = $('searchName').value.trim();
+      if(showAll){ players = await q.limit(200); }
+      else if(term){ players = await supabaseClient.from('players').select('id,nickname,phone').ilike('nickname', `%${term}%`).limit(100); }
+      else { players = await q.limit(50); }
+
+      if(players.error){ $('playersTable').innerHTML = "<tr><td colspan='5'>Error loading players</td></tr>"; return; }
+      const ids = (players.data||[]).map(p=>p.id);
+      if(ids.length===0){ $('playersTable').innerHTML = "<tr><td colspan='5' class='muted'>No players found</td></tr>"; return; }
+
+      const [f, a] = await Promise.all([
+        supabaseClient.from('finds').select('player_id, score_awarded').in('player_id', ids),
+        supabaseClient.from('adjustments').select('player_id, delta').in('player_id', ids)
+      ]);
+      const findsBy = new Map(); (f.data||[]).forEach(x=> findsBy.set(x.player_id, (findsBy.get(x.player_id)||0)+(x.score_awarded||0)));
+      const adjBy = new Map(); (a.data||[]).forEach(x=> adjBy.set(x.player_id, (adjBy.get(x.player_id)||0)+(x.delta||0)));
+
+      const tbody = $('playersTable');
+      tbody.innerHTML = "";
+      (players.data||[]).forEach(p=>{
+        const base = findsBy.get(p.id)||0;
+        const extra = adjBy.get(p.id)||0;
+        const total = base + extra;
+        const tr = document.createElement('tr');
+        const phoneOk = p.phone && p.phone.startsWith("+");
+        const nickOk = p.nickname && p.nickname.trim().length>=2 && !badName(p.nickname);
+        tr.innerHTML = `
+          <td>${nickOk ? p.nickname : (p.nickname||p.id.slice(0,8))} ${phoneOk?'<span class="oktag">phone ✓</span>':'<span class="muted">no phone</span>'} ${nickOk?'<span class="oktag">name ✓</span>':'<span class="muted">name?</span>'}</td>
+          <td class="right"><b>${total}</b> <span class="muted">(tags: ${base} / adj: ${extra})</span></td>
+          <td><input type="number" step="1" value="0" style="width:90px" /></td>
+          <td><input type="text" placeholder="Reason (optional)" style="min-width:180px" /></td>
+          <td><button>Apply</button></td>
+        `;
+        const [deltaI, reasonI, btn] = [tr.children[2].children[0], tr.children[3].children[0], tr.children[4].children[0]];
+        btn.onclick = async ()=>{
+          const delta = parseInt(deltaI.value||"0",10);
+          if(!delta) { toast("Enter a non-zero delta"); return; }
+          const reason = reasonI.value||null;
+          const { data: session } = await supabaseClient.auth.getUser();
+          const admin_id = session?.user?.id || null;
+          const { error } = await supabaseClient.from('adjustments').insert({ player_id: p.id, delta, reason, admin_id });
+          if(error){ toast("Failed: "+error.message); return; }
+          toast(`Applied ${delta>0?'+':''}${delta} to ${p.nickname||p.id.slice(0,8)}`);
+          await Promise.all([loadPlayers(showAll), loadLeaderboard()]);
+        };
+        tbody.appendChild(tr);
+      });
+    }
+    window.loadPlayers = loadPlayers;
+
+  })();
+  </script>
 </head>
 <body>
   <header>
@@ -111,284 +410,5 @@
   </section>
 
   <div id="toast" class="toast" style="display:none;"></div>
-
-<script>
-const SUPABASE_URL = "https://oeahpsbnazvijogyxedu.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9lYWhwc2JuYXp2aWpvZ3l4ZWR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc2MzIxMDQsImV4cCI6MjA3MzIwODEwNH0.FFx6EfbVu2FGGdsfLHGAUASSfsek679Q1z5gDcYqaPE";
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-const qs = new URLSearchParams(location.search);
-const incomingTag = (qs.get("tag") || "").trim().toUpperCase();
-
-let playerId = localStorage.getItem('player_id');
-let adminUser = null;
-
-const banned = [
-  "fuck","shit","bitch","cunt","asshole","bastard","dick","cock","pussy","twat","slut","whore","prick","bollocks","bugger","arse","damn","goddamn","hell",
-  "hitler","stalin","mussolini","putin","lenin","mao","kim jong","kim jong un","xi jinping","trump","donald trump","biden","joe biden","obama","barack",
-  "bush","reagan","saddam","bin laden","gaddafi","pol pot","castro","netanyahu","modi","erdogan","bolsonaro","assad","duarte","mohammed bin"
-];
-function badName(s){ if(!s) return true; const t=s.toLowerCase(); return banned.some(w=>t.includes(w)); }
-function cleanName(s){ return (s||"").replace(/\s+/g," ").trim(); }
-
-function normalizePhone(input){
-  if(!input) return "";
-  const digits = (""+input).replace(/\D+/g, "");
-  if(digits.length === 10) return "+1"+digits;
-  if(digits.length === 11 && digits.startsWith("1") return "+"+digits;
-  if((input.startsWith("+") && digits.length >= 10 && digits.length <= 15)) return "+"+digits;
-  return "";
-}
-function isValidPhone(input){ return !!normalizePhone(input); }
-
-function show(view) {
-  document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
-  document.getElementById(view).classList.add('active');
-  document.querySelectorAll('header button').forEach(b=>b.classList.remove('active'));
-  document.getElementById('btn-'+view).classList.add('active');
-  if(view==='leaderboard') loadLeaderboard();
-  if(view==='admin') checkAdminSession();
-}
-
-async function ensurePlayer() {
-  if (!playerId) {
-    let { data, error } = await supabase.from('players').insert({}).select().single();
-    if (error) { console.error(error); toast("Player create failed"); return; }
-    playerId = data.id;
-    localStorage.setItem('player_id', playerId);
-  }
-  if(incomingTag){ localStorage.setItem('pending_tag', incomingTag); }
-  await renderPlay();
-  if(incomingTag){ await tryAutoClaimPending(); }
-}
-ensurePlayer();
-
-async function renderPlay(){
-  const res = await supabase.from('players').select('nickname, phone').eq('id', playerId).maybeSingle();
-  let data = res.data || {};
-  if(res.error){
-    console.warn("players read error:", res.error);
-    data = { nickname: "", phone: "" };
-  }
-  const nickname = cleanName(data.nickname||"");
-  const phoneOk = !!data.phone && isValidPhone(data.phone);
-  const nickOk = !!nickname && nickname.length>=2 && !badName(nickname);
-  const ok = phoneOk && nickOk;
-
-  document.getElementById('profileBanner').style.display = ok ? 'none' : 'block';
-  document.getElementById('profileEditor').style.display = ok ? 'none' : 'block';
-  document.getElementById('profileSummary').style.display = ok ? 'block' : 'none';
-
-  if(ok){
-    document.getElementById('summaryNick').innerText = nickname;
-  } else {
-    document.getElementById('nickname').value = nickname;
-    document.getElementById('phone').value = data.phone || "";
-    const p = localStorage.getItem('pending_tag');
-    const note = document.getElementById('pendingNote');
-    if(p){ note.innerText = `You scanned: ${p}. Save your profile to log it.`; note.style.display='block'; }
-    else { note.style.display='none'; }
-  }
-
-  await loadProgress();
-  await loadMyFinds();
-}
-
-async function saveProfile(){
-  let nickname = cleanName(document.getElementById('nickname').value);
-  const phoneRaw = document.getElementById('phone').value.trim();
-  const phone = normalizePhone(phoneRaw);
-
-  if(!nickname){ toast("Nickname is required"); document.getElementById('nickname').focus(); return; }
-  if(nickname.length < 2){ toast("Nickname must be at least 2 chars"); document.getElementById('nickname').focus(); return; }
-  if(badName(nickname)){ toast("Please choose a different nickname"); document.getElementById('nickname').focus(); return; }
-  if(!isValidPhone(phoneRaw)){ toast("Enter a valid phone number"); document.getElementById('phone').focus(); return; }
-
-  const { error } = await supabase.from('players').update({nickname, phone}).eq('id',playerId);
-  if(error){ toast("Save failed: "+error.message); return; }
-  document.getElementById('profileOk').style.display='inline-block';
-  setTimeout(()=>document.getElementById('profileOk').style.display='none', 1200);
-  await renderPlay();
-  await tryAutoClaimPending();
-  loadLeaderboard();
-}
-
-async function tryAutoClaimPending(){
-  const p = (localStorage.getItem('pending_tag') || "").trim().toUpperCase();
-  if(!p) return;
-  const { data } = await supabase.from('players').select('nickname, phone').eq('id', playerId).maybeSingle();
-  const ok = data && data.nickname && data.nickname.trim().length>=2 && !badName(data.nickname) && data.phone && isValidPhone(data.phone);
-  if(!ok){ return; }
-  const prior = await supabase.from('finds').select('id').eq('player_id', playerId).eq('tag_id', p).maybeSingle();
-  if(prior.data){ localStorage.removeItem('pending_tag'); history.replaceState({}, "", location.pathname+"?v=play"); return; }
-  const tag = await supabase.from('tags').select('*').eq('id', p).maybeSingle();
-  if(!tag.data || !tag.data.active){ toast("Invalid or inactive token"); localStorage.removeItem('pending_tag'); history.replaceState({}, "", location.pathname+"?v=play"); return; }
-  const pts = tag.data.points || 0;
-  const { error } = await supabase.from('finds').insert({ player_id:playerId, tag_id:p, score_awarded: pts });
-  if(error) toast("Log failed: "+error.message);
-  else { toast(`Logged ${p} (+${pts} pts)`); await loadProgress(); await loadMyFinds(); }
-  localStorage.removeItem('pending_tag');
-  history.replaceState({}, "", location.pathname+"?v=play");
-}
-
-async function loadProgress(){
-  const tags = await supabase.from('tags').select('*').eq('active', true);
-  const finds = await supabase.from('finds').select('tag_id, score_awarded').eq('player_id', playerId);
-  const total = (tags.data||[]).length;
-  const found = new Set((finds.data||[]).map(f=>f.tag_id)).size;
-  const points = (finds.data||[]).reduce((a,f)=>a+(f.score_awarded||0),0);
-  document.getElementById('progress').innerText = `Found: ${found} / ${total} • Points: ${points}`;
-}
-
-async function loadMyFinds(){
-  const { data, error } = await supabase
-    .from('finds')
-    .select('found_at, tag_id, tags(label, points)')
-    .eq('player_id', playerId)
-    .order('found_at', { ascending:false });
-  const list = document.getElementById('myFinds');
-  const empty = document.getElementById('noFinds');
-  list.innerHTML = "";
-  if(error || !data || !data.length){ empty.style.display='block'; return; }
-  empty.style.display='none';
-  data.forEach(r=>{
-    const li = document.createElement('li');
-    li.className = 'item';
-    const label = r.tags?.label || r.tag_id;
-    const pts = r.tags?.points ?? '';
-    li.innerHTML = `<span><b>${label}</b> <span class="muted">(${r.tag_id})</span></span><span class="muted">${new Date(r.found_at).toLocaleTimeString()}${pts!==''?` • +${pts} pts`:''}</span>`;
-    list.appendChild(li);
-  });
-}
-
-async function loadLeaderboard(){
-  const finds = await supabase.from('finds').select('player_id, score_awarded');
-  if(finds.error) { console.error(finds.error); return; }
-  const scores = new Map();
-  (finds.data||[]).forEach(r=>{
-    const key = String(r.player_id);
-    scores.set(key,(scores.get(key)||0)+(r.score_awarded||0));
-  });
-  const adj = await supabase.from('adjustments').select('player_id, delta');
-  if(!adj.error){
-    (adj.data||[]).forEach(a=>{
-      const key = String(a.player_id);
-      scores.set(key,(scores.get(key)||0)+(a.delta||0));
-    });
-  }
-  const ids = Array.from(scores.keys());
-  if(ids.length===0) { document.getElementById('leaders').innerHTML = "<div class='muted'>No plays yet</div>"; return; }
-  const players = await supabase.from('players').select('id,nickname').in('id', ids);
-  let names = {};
-  if(players.error) { console.warn("players read error:", players.error); }
-  (players.data||[]).forEach(p=> names[String(p.id)] = p.nickname || "");
-  const arr = ids.map(id=>({ id, name: names[id]||id.slice(0,8), pts: scores.get(id) }))
-                 .sort((a,b)=>b.pts-a.pts).slice(0,50);
-  document.getElementById('leaders').innerHTML = arr.map((r,i)=>`<div>${i+1}. <b>${r.name}</b> — ${r.pts} pts</div>`).join("");
-}
-
-async function doAdminLogin(e){
-  e.preventDefault();
-  const email = document.getElementById('admin-email').value.trim();
-  const password = document.getElementById('admin-pass').value;
-  if(!email || !password){ toast("Enter email & password"); return; }
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if(error){ toast("Login failed: "+error.message); return; }
-  await checkAdminSession();
-}
-
-async function checkAdminSession(){
-  const { data: { user } } = await supabase.auth.getUser();
-  if(!user){
-    document.getElementById('admin-panel').style.display='none';
-    document.getElementById('admin-login').style.display='block';
-    return;
-  }
-  adminUser = user;
-  document.getElementById('whoami').innerText = user.email;
-  const admin = await supabase.from('admins').select('user_id').eq('user_id', user.id).maybeSingle();
-  if(!admin.data){
-    toast("This account is not whitelisted as admin");
-    await supabase.auth.signOut();
-    document.getElementById('admin-panel').style.display='none';
-    document.getElementById('admin-login').style.display='block';
-    return;
-  }
-  document.getElementById('admin-login').style.display='none';
-  document.getElementById('admin-panel').style.display='block';
-  await Promise.all([loadAdmin(), loadPlayers(true)]);
-}
-
-async function signOut(){
-  await supabase.auth.signOut();
-  document.getElementById('admin-panel').style.display='none';
-  document.getElementById('admin-login').style.display='block';
-}
-
-async function loadAdmin(){
-  const tags = await supabase.from('tags').select('*').order('id');
-  document.getElementById('tag-list').innerHTML = (tags.data||[]).map(t=>`<div>${t.id} — ${t.label||''} (${t.points||0} pts)</div>`).join("");
-  const finds = await supabase.from('finds').select('found_at, tag_id, score_awarded').order('found_at', { ascending:false }).limit(10);
-  document.getElementById('live-finds').innerHTML = (finds.data||[]).map(f=>`<div>${new Date(f.found_at).toLocaleTimeString()} — ${f.tag_id} (+${f.score_awarded})</div>`).join("");
-}
-
-async function loadPlayers(showAll=false){
-  const q = supabase.from('players').select('id,nickname,phone').order('created_at',{ascending:false});
-  let players;
-  const term = document.getElementById('searchName').value.trim();
-  if(showAll){ players = await q.limit(200); }
-  else if(term){ players = await supabase.from('players').select('id,nickname,phone').ilike('nickname', `%${term}%`).limit(100); }
-  else { players = await q.limit(50); }
-
-  if(players.error){ document.getElementById('playersTable').innerHTML = "<tr><td colspan='5'>Error loading players</td></tr>"; return; }
-  const ids = (players.data||[]).map(p=>p.id);
-  if(ids.length===0){ document.getElementById('playersTable').innerHTML = "<tr><td colspan='5' class='muted'>No players found</td></tr>"; return; }
-
-  const [f, a] = await Promise.all([
-    supabase.from('finds').select('player_id, score_awarded').in('player_id', ids),
-    supabase.from('adjustments').select('player_id, delta').in('player_id', ids)
-  ]);
-  const findsBy = new Map(); (f.data||[]).forEach(x=> findsBy.set(x.player_id, (findsBy.get(x.player_id)||0)+(x.score_awarded||0)));
-  const adjBy = new Map(); (a.data||[]).forEach(x=> adjBy.set(x.player_id, (adjBy.get(x.player_id)||0)+(x.delta||0)));
-
-  const tbody = document.getElementById('playersTable');
-  tbody.innerHTML = "";
-  (players.data||[]).forEach(p=>{
-    const base = findsBy.get(p.id)||0;
-    const extra = adjBy.get(p.id)||0;
-    const total = base + extra;
-    const tr = document.createElement('tr');
-    const phoneOk = p.phone && p.phone.startsWith("+");
-    const nickOk = p.nickname && p.nickname.trim().length>=2 && !badName(p.nickname);
-    tr.innerHTML = `
-      <td>${nickOk ? p.nickname : (p.nickname||p.id.slice(0,8))} ${phoneOk?'<span class="oktag">phone ✓</span>':'<span class="muted">no phone</span>'} ${nickOk?'<span class="oktag">name ✓</span>':'<span class="muted">name?</span>'}</td>
-      <td class="right"><b>${total}</b> <span class="muted">(tags: ${base} / adj: ${extra})</span></td>
-      <td><input type="number" step="1" value="0" style="width:90px" /></td>
-      <td><input type="text" placeholder="Reason (optional)" style="min-width:180px" /></td>
-      <td><button>Apply</button></td>
-    `;
-    const [deltaI, reasonI, btn] = [tr.children[2].children[0], tr.children[3].children[0], tr.children[4].children[0]];
-    btn.onclick = async ()=>{
-      const delta = parseInt(deltaI.value||"0",10);
-      if(!delta) { toast("Enter a non-zero delta"); return; }
-      const reason = reasonI.value||null;
-      const { data: session } = await supabase.auth.getUser();
-      const admin_id = session?.user?.id || null;
-      const { error } = await supabase.from('adjustments').insert({ player_id: p.id, delta, reason, admin_id });
-      if(error){ toast("Failed: "+error.message); return; }
-      toast(`Applied ${delta>0?'+':''}${delta} to ${p.nickname||p.id.slice(0,8)}`);
-      await Promise.all([loadPlayers(showAll), loadLeaderboard()]);
-    };
-    tbody.appendChild(tr);
-  });
-}
-
-function toast(msg){
-  const t=document.getElementById('toast');
-  t.innerText=msg;
-  t.style.display='block';
-  setTimeout(()=>t.style.display='none',3000);
-}
-</script>
 </body>
 </html>

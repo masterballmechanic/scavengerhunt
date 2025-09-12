@@ -1,108 +1,116 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Munchies Halloween Hunt</title>
-<style>
-  :root { --bg:#0d0d0d; --panel:#141414; --line:#2a2a2a; --muted:#bbb; --brand:#ff6600; --brand2:#ffaa33; }
-  * { box-sizing: border-box }
-  body { background:var(--bg); color:#fff; font-family:system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin:0; }
-  header { background:#1a1a1a; padding:10px; display:flex; justify-content:space-around; position:sticky; top:0; z-index:5; border-bottom:1px solid var(--line) }
-  header button { background:var(--brand); border:none; padding:10px 20px; border-radius:8px; font-weight:700; cursor:pointer; }
-  header button.active { background:var(--brand2); }
-  section { display:none; padding:18px; }
-  section.active { display:block; }
-  .toast { position:fixed; bottom:12px; right:12px; background:#222; border:1px solid var(--line); padding:10px 12px; border-radius:8px; }
-  input, button, textarea, select { margin:6px 0; padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:var(--panel); color:#fff; }
-  input::placeholder { color:#aaa; }
-  .muted { color:var(--muted); font-size:12px; }
-  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-  .warn { background:#2b1515; border:1px solid #6b1c1c; color:#ffb4b4; padding:10px 12px; border-radius:8px; margin:8px 0; }
-  .oktag { background:#0f2a1b; border:1px solid #184c31; color:#9ee0c4; padding:6px 10px; border-radius:999px; font-size:12px; display:inline-block }
-  table { width:100%; border-collapse:collapse; margin-top:8px; }
-  th, td { border-bottom:1px solid var(--line); padding:8px; text-align:left; vertical-align:middle; }
-  td.right { text-align:right }
-  .pill { background:#222; border:1px solid var(--line); padding:4px 8px; border-radius:999px; font-size:12px; }
-  .card { border:1px solid var(--line); background:var(--panel); border-radius:12px; padding:12px; margin:12px 0; }
-  .list { list-style:none; padding:0; margin:0 }
-  .item { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px dashed var(--line) }
-  .item:last-child { border-bottom:none }
-  .center { text-align:center }
-</style>
-<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Munchies Halloween Hunt</title>
+  <style>
+    :root { --bg:#0d0d0d; --panel:#141414; --line:#2a2a2a; --muted:#bbb; --brand:#ff6600; --brand2:#ffaa33; }
+    * { box-sizing: border-box }
+    body { background:var(--bg); color:#fff; font-family:system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin:0; }
+    header { background:#1a1a1a; padding:10px; display:flex; justify-content:space-around; position:sticky; top:0; z-index:5; border-bottom:1px solid var(--line) }
+    header button { background:var(--brand); border:none; padding:10px 20px; border-radius:8px; font-weight:700; cursor:pointer; }
+    header button.active { background:var(--brand2); }
+    section { display:none; padding:18px; }
+    section.active { display:block; }
+    .toast { position:fixed; bottom:12px; right:12px; background:#222; border:1px solid var(--line); padding:10px 12px; border-radius:8px; }
+    input, button, textarea, select { margin:6px 0; padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:var(--panel); color:#fff; }
+    input::placeholder { color:#aaa; }
+    .muted { color:var(--muted); font-size:12px; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .warn { background:#2b1515; border:1px solid #6b1c1c; color:#ffb4b4; padding:10px 12px; border-radius:8px; margin:8px 0; }
+    .oktag { background:#0f2a1b; border:1px solid #184c31; color:#9ee0c4; padding:6px 10px; border-radius:999px; font-size:12px; display:inline-block }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th, td { border-bottom:1px solid var(--line); padding:8px; text-align:left; vertical-align:middle; }
+    td.right { text-align:right }
+    .pill { background:#222; border:1px solid var(--line); padding:4px 8px; border-radius:999px; font-size:12px; }
+    .card { border:1px solid var(--line); background:var(--panel); border-radius:12px; padding:12px; margin:12px 0; }
+    .list { list-style:none; padding:0; margin:0 }
+    .item { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px dashed var(--line) }
+    .item:last-child { border-bottom:none }
+    .center { text-align:center }
+  </style>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 </head>
 <body>
-<header>
-  <button onclick="show('play')" id="btn-play" class="active">Play</button>
-  <button onclick="show('leaderboard')" id="btn-leaderboard">Leaderboard</button>
-  <button onclick="show('admin')" id="btn-admin">Admin</button>
-</header>
+  <header>
+    <button onclick="show('play')" id="btn-play" class="active">Play</button>
+    <button onclick="show('leaderboard')" id="btn-leaderboard">Leaderboard</button>
+    <button onclick="show('admin')" id="btn-admin">Admin</button>
+  </header>
 
-<section id="play" class="active">
-  <h2>🎃 Player</h2>
-  <div id="profileBanner" class="warn" style="display:none;">📝 Nickname <b>and</b> 📱 Phone are required to play. Enter both and hit <b>Save</b>.</div>
-  <div id="profileEditor" class="card" style="display:none;">
-    <div class="row">
-      <input id="nickname" placeholder="Nickname (required)" maxlength="24" />
-      <input id="phone" placeholder="Phone (e.g., 555-123-4567 or +15551234567)" inputmode="tel"/>
-      <button onclick="saveProfile()">Save</button>
-      <span id="profileOk" class="oktag" style="display:none;">Saved</span>
-    </div>
-    <div id="pendingNote" class="muted" style="display:none;"></div>
-  </div>
-  <div id="profileSummary" class="card" style="display:none;">
-    <div><b>Nickname:</b> <span id="summaryNick"></span></div>
-    <div class="muted">Tokens auto-log by scanning NFC/QR on this device.</div>
-  </div>
-  <div id="progress" class="muted"></div>
-  <div class="card">
-    <h3>Your Finds</h3>
-    <ul id="myFinds" class="list"></ul>
-    <div id="noFinds" class="muted">No finds yet. Scan your first token!</div>
-  </div>
-</section>
+  <section id="play" class="active">
+    <h2>🎃 Player</h2>
+    <div id="profileBanner" class="warn" style="display:none;">📝 Nickname <b>and</b> 📱 Phone are required to play. Enter both and hit <b>Save</b>.</div>
 
-<section id="leaderboard">
-  <h2>👻 Leaderboard</h2>
-  <div id="leaders"></div>
-</section>
-
-<section id="admin">
-  <h2>🔐 Admin</h2>
-  <div id="admin-login">
-    <form id="admin-login-form" onsubmit="doAdminLogin(event)">
+    <div id="profileEditor" class="card" style="display:none;">
       <div class="row">
-        <input id="admin-email" placeholder="Email" type="email" autocomplete="username" required/>
-        <input id="admin-pass" placeholder="Password" type="password" autocomplete="current-password" required/>
-        <button type="submit">Login</button>
+        <input id="nickname" placeholder="Nickname (required)" maxlength="24" />
+        <input id="phone" placeholder="Phone (e.g., 555-123-4567 or +15551234567)" inputmode="tel"/>
+        <button onclick="saveProfile()">Save</button>
+        <span id="profileOk" class="oktag" style="display:none;">Saved</span>
       </div>
-      <div class="muted">Only whitelisted accounts can manage tags & points.</div>
-    </form>
-  </div>
-  <div id="admin-panel" style="display:none;">
-    <div class="row">
-      <button onclick="signOut()">🚪 Sign out</button>
-      <span id="whoami" class="pill"></span>
+      <div id="pendingNote" class="muted" style="display:none;"></div>
     </div>
-    <h3>Players (adjust points)</h3>
-    <div class="row">
-      <input id="searchName" placeholder="Search nickname"/>
-      <button onclick="loadPlayers()">Search</button>
-      <button onclick="loadPlayers(true)" title="Show all">Show all</button>
-    </div>
-    <table>
-      <thead><tr><th>Player</th><th class="right">Points</th><th>Δ (e.g. -5 or 10)</th><th>Reason</th><th></th></tr></thead>
-      <tbody id="playersTable"></tbody>
-    </table>
-    <h3>Tags</h3>
-    <div id="tag-list" class="card"></div>
-    <h3>Live Finds</h3>
-    <div id="live-finds" class="card"></div>
-  </div>
-</section>
 
-<div id="toast" class="toast" style="display:none;"></div>
+    <div id="profileSummary" class="card" style="display:none;">
+      <div><b>Nickname:</b> <span id="summaryNick"></span></div>
+      <div class="muted">Tokens auto-log by scanning NFC/QR on this device.</div>
+    </div>
+
+    <div id="progress" class="muted"></div>
+
+    <div class="card">
+      <h3>Your Finds</h3>
+      <ul id="myFinds" class="list"></ul>
+      <div id="noFinds" class="muted">No finds yet. Scan your first token!</div>
+    </div>
+  </section>
+
+  <section id="leaderboard">
+    <h2>👻 Leaderboard</h2>
+    <div id="leaders"></div>
+  </section>
+
+  <section id="admin">
+    <h2>🔐 Admin</h2>
+    <div id="admin-login">
+      <form id="admin-login-form" onsubmit="doAdminLogin(event)">
+        <div class="row">
+          <input id="admin-email" placeholder="Email" type="email" autocomplete="username" required/>
+          <input id="admin-pass" placeholder="Password" type="password" autocomplete="current-password" required/>
+          <button type="submit">Login</button>
+        </div>
+        <div class="muted">Only whitelisted accounts can manage tags & points.</div>
+      </form>
+    </div>
+    <div id="admin-panel" style="display:none;">
+      <div class="row">
+        <button onclick="signOut()">🚪 Sign out</button>
+        <span id="whoami" class="pill"></span>
+      </div>
+
+      <h3>Players (adjust points)</h3>
+      <div class="row">
+        <input id="searchName" placeholder="Search nickname"/>
+        <button onclick="loadPlayers()">Search</button>
+        <button onclick="loadPlayers(true)" title="Show all">Show all</button>
+      </div>
+      <table>
+        <thead><tr><th>Player</th><th class="right">Points</th><th>Δ (e.g. -5 or 10)</th><th>Reason</th><th></th></tr></thead>
+        <tbody id="playersTable"></tbody>
+      </table>
+
+      <h3>Tags</h3>
+      <div id="tag-list" class="card"></div>
+
+      <h3>Live Finds</h3>
+      <div id="live-finds" class="card"></div>
+    </div>
+  </section>
+
+  <div id="toast" class="toast" style="display:none;"></div>
 
 <script>
 const SUPABASE_URL = "https://oeahpsbnazvijogyxedu.supabase.co";
@@ -127,7 +135,7 @@ function normalizePhone(input){
   if(!input) return "";
   const digits = (""+input).replace(/\D+/g, "");
   if(digits.length === 10) return "+1"+digits;
-  if(digits.length === 11 && digits.startsWith("1")) return "+"+digits;
+  if(digits.length === 11 && digits.startsWith("1") return "+"+digits;
   if((input.startsWith("+") && digits.length >= 10 && digits.length <= 15)) return "+"+digits;
   return "";
 }

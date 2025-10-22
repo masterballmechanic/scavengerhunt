@@ -6,13 +6,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Munchies Halloween Hunt</title>
   <style>
-    :root { --panel:#151218; --line:#2b2233; --muted:#cfc7d9; --brand:#ff6a00; --brand2:#ffb347; --gold:#ffd700; --silver:#c0c0c0; --bronze:#cd7f32; }
+    :root { --panel:#151218; --line:#2b2233; --muted:#cfc7d9; --brand:#ff6a00; --brand2:#ffb347; }
     * { box-sizing: border-box }
     html, body { height: 100%; }
     body {
       margin:0; color:#fff; font-family:system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
       background: url('backgroundhalloween.png') center center / cover no-repeat fixed;
     }
+    /* dark overlay to keep text readable */
     body::before {
       content:""; position:fixed; inset:0;
       background:radial-gradient(ellipse at top, rgba(0,0,0,.55), rgba(0,0,0,.78) 60%);
@@ -51,42 +52,6 @@
     .list { list-style:none; padding:0; margin:0 }
     .item { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px dashed var(--line) }
     .item:last-child { border-bottom:none }
-
-    /* Podium styles */
-    .podium { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px; align-items:end; margin:8px 0 16px; }
-    .podium .slot { position:relative; text-align:center; background:rgba(18,16,24,.88); border:1px solid var(--line); border-radius:12px 12px 6px 6px; box-shadow:0 10px 30px rgba(0,0,0,.35); padding:10px 8px; }
-    .podium .slot .place { position:absolute; top:-10px; left:50%; transform:translateX(-50%); font-weight:900; font-size:12px; padding:4px 8px; border-radius:999px; background:#00000080; border:1px solid var(--line); }
-    .podium .slot .name { font-weight:800; margin-top:6px; }
-    .podium .slot .pts { font-size:12px; color:var(--muted); }
-    .podium .gold { height:150px; border-top:6px solid var(--gold); }
-    .podium .silver { height:130px; border-top:6px solid var(--silver); }
-    .podium .bronze { height:110px; border-top:6px solid var(--bronze); }
-    .podium .medal { font-size:18px; display:block; margin-bottom:4px; }
-    .lb-rest .rowline { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed var(--line); }
-    .lb-rest .rowline:last-child { border-bottom:none; }
-    .lb-rest .rank { width:26px; text-align:center; opacity:.85; }
-    .two-col { display:grid; grid-template-columns:1fr; gap:16px; }
-    @media (min-width: 900px) {
-      .two-col { grid-template-columns: 1.2fr .8fr; }
-    }
-
-    /* Gallery */
-    .gallery { display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; }
-    @media (min-width: 520px) { .gallery { grid-template-columns: repeat(4, 1fr); } }
-    @media (min-width: 820px) { .gallery { grid-template-columns: repeat(6, 1fr); } }
-    .tile { position:relative; border-radius:12px; overflow:hidden; background:#0f0d12; border:1px solid var(--line); }
-    .tile img { width:100%; height:100%; object-fit:cover; display:block; aspect-ratio: 1 / 1; filter: grayscale(100%) contrast(0.7) brightness(0.7); transition: filter .2s ease, transform .2s ease; }
-    .tile.found img { filter: none; }
-    .tile .cap { position:absolute; bottom:0; left:0; right:0; background:linear-gradient(180deg, transparent, rgba(0,0,0,.75)); padding:6px 8px; font-size:12px; }
-    .tile .badge { position:absolute; top:6px; right:6px; background:#162a16; border:1px solid #2a5a2a; color:#b9f7c8; padding:4px 6px; font-size:10px; border-radius:999px; display:none; }
-    .tile.found .badge { display:inline-block; }
-
-    /* Admin: Tag Images Manager */
-    .admin-grid { display:grid; grid-template-columns: 1fr; gap:10px; }
-    .img-row { display:grid; grid-template-columns: 120px 1fr; gap:10px; align-items:center; padding:8px; border:1px solid var(--line); border-radius:10px; background:rgba(22,18,28,.6); }
-    .img-row img { width:120px; aspect-ratio:1/1; object-fit:cover; border-radius:8px; border:1px solid var(--line); }
-    .img-row .meta { font-size:12px; color:var(--muted); }
-    .bulkbox { width:100%; min-height:110px; }
   </style>
   <script src="https://unpkg.com/@supabase/supabase-js@2" defer></script>
   <script defer>
@@ -181,7 +146,6 @@
 
       await loadProgress();
       await loadMyFinds();
-      await renderGallery();
     }
 
     window.saveProfile = async function saveProfile(){
@@ -216,7 +180,7 @@
       const pts = tag.data.points || 0;
       const { error } = await supabaseClient.from('finds').insert({ player_id:playerId, tag_id:p, score_awarded: pts });
       if(error) toast("Log failed: "+error.message);
-      else { toast(`Logged ${p} (+${pts} pts)`); await loadProgress(); await loadMyFinds(); await renderGallery(); }
+      else { toast(`Logged ${p} (+${pts} pts)`); await loadProgress(); await loadMyFinds(); }
       localStorage.removeItem('pending_tag');
       history.replaceState({}, "", location.pathname+"?v=play");
     }
@@ -251,36 +215,9 @@
       });
     }
 
-    // --- Gallery ---
-    async function renderGallery(){
-      const tg = await supabaseClient.from('tags').select('id,label,image_url,active,points').order('id');
-      if(tg.error){ $('gallery').innerHTML = '<div class="muted">Error loading gallery</div>'; return; }
-      const my = await supabaseClient.from('finds').select('tag_id').eq('player_id', playerId);
-      const foundSet = new Set((my.data||[]).map(r=>r.tag_id));
-
-      const nodes = (tg.data||[]).map(t=>{
-        const found = foundSet.has(t.id);
-        const src = pickImage(t);
-        const label = t.label || t.id;
-        return `
-          <div class="tile ${found?'found':''}" title="${label}">
-            <img loading="lazy" src="${src}" alt="${label}"/>
-            <span class="badge">✓ Found</span>
-            <div class="cap"><b>${label}</b> <span class="muted">(${t.points||0} pts)</span></div>
-          </div>
-        `;
-      }).join('');
-      $('gallery').innerHTML = nodes || '<div class="muted">No tags added yet.</div>';
-    }
-    function pickImage(t){
-      if(t.image_url) return t.image_url;
-      return `/images/${String(t.id).toUpperCase()}.jpg`;
-    }
-
-    // --- Leaderboard + Live finds ---
     async function loadLeaderboard(){
       const finds = await supabaseClient.from('finds').select('player_id, score_awarded');
-      if(finds.error) { $('leaders').innerHTML = "<div class='muted'>Error loading leaderboard</div>"; return; }
+      if(finds.error) { console.error(finds.error); return; }
       const scores = new Map();
       (finds.data||[]).forEach(r=>{
         const key = String(r.player_id);
@@ -294,73 +231,16 @@
         });
       }
       const ids = Array.from(scores.keys());
-      if(ids.length===0) { $('leaders').innerHTML = "<div class='muted'>No plays yet</div>"; $('liveBoard').innerHTML=''; return; }
+      if(ids.length===0) { $('leaders').innerHTML = "<div class='muted'>No plays yet</div>"; return; }
       const players = await supabaseClient.from('players').select('id,nickname').in('id', ids);
       let names = {};
+      if(players.error) { console.warn("players read error:", players.error); }
       (players.data||[]).forEach(p=> names[String(p.id)] = p.nickname || "");
       const arr = ids.map(id=>({ id, name: names[id]||id.slice(0,8), pts: scores.get(id) }))
-                     .sort((a,b)=>b.pts-a.pts);
-
-      const gold = arr[0], silver = arr[1], bronze = arr[2];
-      let podiumHTML = `
-        <div class="podium card">
-          <div class="slot silver">
-            <span class="place">2ND</span>
-            <span class="medal">🥈</span>
-            <div class="name">${silver?silver.name:'—'}</div>
-            <div class="pts">${silver?silver.pts:0} pts</div>
-          </div>
-          <div class="slot gold">
-            <span class="place">1ST</span>
-            <span class="medal">🥇</span>
-            <div class="name">${gold?gold.name:'—'}</div>
-            <div class="pts">${gold?gold.pts:0} pts</div>
-          </div>
-          <div class="slot bronze">
-            <span class="place">3RD</span>
-            <span class="medal">🥉</span>
-            <div class="name">${bronze?bronze.name:'—'}</div>
-            <div class="pts">${bronze?bronze.pts:0} pts</div>
-          </div>
-        </div>`;
-
-      const rest = arr.slice(3, 50);
-      let restHTML = '<div class="card lb-rest">';
-      rest.forEach((r,i)=>{
-        const rank = i+4;
-        restHTML += `<div class="rowline"><div><span class="rank">${rank}</span> <b>${r.name}</b></div><div>${r.pts} pts</div></div>`;
-      });
-      restHTML += '</div>';
-
-      $('leaders').innerHTML = podiumHTML + (rest.length?restHTML:'<div class="muted">Only a few players so far — keep hunting!</div>');
-
-      await loadLiveFindsBoard();
+                     .sort((a,b)=>b.pts-a.pts).slice(0,50);
+      $('leaders').innerHTML = arr.map((r,i)=>`<div>${i+1}. <b>${r.name}</b> — ${r.pts} pts</div>`).join("");
     }
 
-    async function loadLiveFindsBoard(){
-      const { data: finds, error } = await supabaseClient
-        .from('finds')
-        .select('player_id, tag_id, found_at, score_awarded, tags(label)')
-        .order('found_at', { ascending:false })
-        .limit(15);
-      if(error){ $('liveBoard').innerHTML = "<div class='muted'>Error loading live finds</div>"; return; }
-      const playerIds = Array.from(new Set((finds||[]).map(f=>f.player_id)));
-      let names = {};
-      if(playerIds.length){
-        const p = await supabaseClient.from('players').select('id,nickname').in('id', playerIds);
-        (p.data||[]).forEach(x=> names[String(x.id)] = x.nickname || x.id.slice(0,8));
-      }
-      const html = (finds||[]).map(f=>{
-        const who = names[String(f.player_id)] || String(f.player_id).slice(0,8);
-        const label = (f.tags && f.tags.label) ? f.tags.label : f.tag_id;
-        const time = new Date(f.found_at).toLocaleTimeString();
-        const pts = typeof f.score_awarded==='number' ? ` • +${f.score_awarded} pts` : '';
-        return `<div class="item"><span><b>${who}</b> found <b>${label}</b></span><span class="muted">${time}${pts}</span></div>`;
-      }).join('');
-      $('liveBoard').innerHTML = `<div class="card">${html || '<div class="muted">No finds yet.</div>'}</div>`;
-    }
-
-    // --- Admin ---
     async function doAdminLogin(e){
       e.preventDefault();
       const email = $('admin-email').value.trim();
@@ -390,7 +270,7 @@
       }
       $('admin-login').style.display='none';
       $('admin-panel').style.display='block';
-      await Promise.all([loadAdmin(), loadPlayers(true), loadTagImagesManager()]);
+      await Promise.all([loadAdmin(), loadPlayers(true)]);
     }
 
     async function signOut(){
@@ -459,75 +339,6 @@
     }
     window.loadPlayers = loadPlayers;
 
-    // --- Admin: Tag Images Manager
-    async function loadTagImagesManager(){
-      const { data, error } = await supabaseClient.from('tags').select('id,label,points,image_url').order('id');
-      if(error){ $('img-mgr').innerHTML = '<div class="muted">Error loading tags</div>'; return; }
-      const rows = (data||[]).map(t=>{
-        const src = t.image_url || `/images/${String(t.id).toUpperCase()}.jpg`;
-        return `
-        <div class="img-row">
-          <img src="${src}" alt="${t.label||t.id}"/>
-          <div>
-            <div><b>${t.label||t.id}</b> <span class="muted">(${t.id} • ${t.points||0} pts)</span></div>
-            <input type="text" id="img-${t.id}" placeholder="https://... or /images/NAME.webp" value="${t.image_url||''}" style="width:100%"/>
-            <div class="row">
-              <button onclick="saveImageUrl('${t.id}')">Save URL</button>
-              <button onclick="previewImageUrl('${t.id}')">Preview</button>
-              <span class="muted">Blank = will fallback to /images/${String(t.id).toUpperCase()}.jpg</span>
-            </div>
-            <div id="img-status-${t.id}" class="muted"></div>
-          </div>
-        </div>`;
-      }).join('');
-      $('img-mgr').innerHTML = rows || '<div class="muted">No tags yet.</div>';
-    }
-    window.loadTagImagesManager = loadTagImagesManager;
-
-    window.previewImageUrl = function(id){
-      const v = (document.getElementById(`img-${id}`).value || '').trim() || `/images/${String(id).toUpperCase()}.jpg`;
-      window.open(v, "_blank");
-    };
-
-    window.saveImageUrl = async function(id){
-      const v = (document.getElementById(`img-${id}`).value || '').trim() || null;
-      const { error } = await supabaseClient.from('tags').update({ image_url: v }).eq('id', id);
-      const el = document.getElementById(`img-status-${id}`);
-      if(error){ el.innerText = "Save failed: "+error.message; return; }
-      el.innerText = "Saved ✓"; setTimeout(()=>el.innerText="", 1500);
-      await Promise.all([renderGallery(), loadTagImagesManager()]);
-    };
-
-    window.bulkApplyImages = async function(){
-      const txt = (document.getElementById('bulkInput').value || '').trim();
-      if(!txt){ toast("Paste lines: TAGID,URL"); return; }
-      const lines = txt.split(/\n+/).map(s=>s.trim()).filter(Boolean);
-      const updates = [];
-      lines.forEach(line=>{
-        const m = line.split(',');
-        if(m.length>=2) updates.push({ id: m[0].trim(), image_url: m.slice(1).join(',').trim() });
-      });
-      if(!updates.length){ toast("No valid lines found"); return; }
-      let ok=0, fail=0;
-      for(const u of updates){
-        const { error } = await supabaseClient.from('tags').update({ image_url: u.image_url || null }).eq('id', u.id);
-        if(error) fail++; else ok++;
-      }
-      toast(`Bulk updated: ${ok} ok, ${fail} failed`);
-      await Promise.all([renderGallery(), loadTagImagesManager()]);
-    };
-
-    window.fillDefaultsForEmpty = async function(){
-      const { data } = await supabaseClient.from('tags').select('id,image_url');
-      const empties = (data||[]).filter(t=>!t.image_url);
-      for(const t of empties){
-        const def = `/images/${String(t.id).toUpperCase()}.jpg`;
-        await supabaseClient.from('tags').update({ image_url: def }).eq('id', t.id);
-      }
-      toast(`Filled defaults for ${empties.length} tags`);
-      await Promise.all([renderGallery(), loadTagImagesManager()]);
-    };
-
   })();
   </script>
 </head>
@@ -564,13 +375,6 @@
 
       <div id="progress" class="muted"></div>
 
-      <!-- Clue Gallery -->
-      <div class="card">
-        <h3>🎬 Clue Gallery</h3>
-        <div id="gallery" class="gallery"></div>
-        <div class="muted">Images are grayscale until you find the matching tag on-site.</div>
-      </div>
-
       <div class="card">
         <h3>Your Finds</h3>
         <ul id="myFinds" class="list"></ul>
@@ -580,15 +384,7 @@
 
     <section id="leaderboard">
       <h2>👻 Leaderboard</h2>
-      <div class="two-col">
-        <div>
-          <div id="leaders"></div>
-        </div>
-        <div>
-          <h3>🟣 Live Finds</h3>
-          <div id="liveBoard"></div>
-        </div>
-      </div>
+      <div id="leaders"></div>
     </section>
 
     <section id="admin">
@@ -622,20 +418,6 @@
 
         <h3>Tags</h3>
         <div id="tag-list" class="card"></div>
-
-        <h3>Tag Images Manager</h3>
-        <div class="card">
-          <div class="row">
-            <button onclick="fillDefaultsForEmpty()">Fill defaults for empty (to /images/TAG.jpg)</button>
-          </div>
-          <textarea id="bulkInput" class="bulkbox" placeholder="Bulk paste lines like:
-SCREAM-01, /images/scream_poster.webp
-ALIEN-07, https://cdn.example.com/alien7.png"></textarea>
-          <div class="row">
-            <button onclick="bulkApplyImages()">Apply Bulk</button>
-          </div>
-          <div id="img-mgr" class="admin-grid" style="margin-top:10px;"></div>
-        </div>
 
         <h3>Live Finds</h3>
         <div id="live-finds" class="card"></div>

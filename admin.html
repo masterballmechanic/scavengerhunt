@@ -1,0 +1,261 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Munchies Admin</title>
+  <style>
+    :root {
+      --panel:#151218; --line:#2b2233; --muted:#cfc7d9;
+      --brand:#ff6a00; --brand2:#ffb347;
+    }
+    * { box-sizing: border-box }
+    html, body { height: 100%; }
+    body {
+      margin:0; color:#fff; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      background: url('backgroundhalloween.png') center center / cover no-repeat fixed;
+    }
+    body::before {
+      content:""; position:fixed; inset:0;
+      background:radial-gradient(ellipse at top, rgba(0,0,0,.55), rgba(0,0,0,.78) 60%);
+      z-index:-1;
+    }
+    header { display:flex; align-items:center; gap:10px; padding:10px 14px; border-bottom:1px solid var(--line);
+      background:linear-gradient(90deg, rgba(10,8,12,.75), rgba(10,8,12,.35));
+      position:sticky; top:0; z-index:5; backdrop-filter: blur(4px);
+    }
+    header img { height:48px }
+    .spacer { flex:1 }
+    .pill { background:#201826; border:1px solid var(--line); padding:4px 8px; border-radius:999px; font-size:12px; }
+    .toast { position:fixed; bottom:12px; right:12px; background:#1a141f; border:1px solid var(--line); padding:10px 12px; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.35); display:none; }
+    .card { border:1px solid var(--line); background:rgba(18,16,24,.78); border-radius:14px; padding:12px; margin:16px 0; box-shadow:0 12px 36px rgba(0,0,0,.35); }
+    input, button, textarea, select { margin:6px 0; padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:rgba(18,16,24,.85); color:#fff; }
+    button.primary { background:var(--brand); border:none; font-weight:800; cursor:pointer }
+    .muted { color:var(--muted); font-size:12px; }
+    main { padding:16px; max-width:1100px; margin:0 auto }
+    table { width:100%; border-collapse:collapse; }
+    th, td { border-bottom:1px solid var(--line); padding:8px; text-align:left; vertical-align:middle; }
+    td.right { text-align:right }
+    .oktag { background:#112a17; border:1px solid #1e4a2a; color:#b4f3c6; padding:6px 10px; border-radius:999px; font-size:12px; display:inline-block }
+    .admin-grid { display:grid; grid-template-columns: 1fr; gap:10px; }
+    .img-row { display:grid; grid-template-columns: 120px 1fr; gap:10px; align-items:center; padding:8px; border:1px solid var(--line); border-radius:10px; background:rgba(22,18,28,.6); }
+    .img-row img { width:120px; aspect-ratio:1/1; object-fit:cover; border-radius:8px; border:1px solid var(--line); }
+    .bulkbox { width:100%; min-height:110px; }
+
+    /* Fullscreen login gate */
+    #gate { display:flex; align-items:center; justify-content:center; height:calc(100vh - 70px); }
+    .gate-box { max-width:420px; width:100%; padding:16px; }
+    .title { font-size:22px; font-weight:800; }
+  </style>
+  <script src="https://unpkg.com/@supabase/supabase-js@2" defer></script>
+  <script defer>
+  window.onerror = function(msg){ const t=document.getElementById('toast'); if(t){ t.innerText='JS error: '+msg; t.style.display='block'; } };
+  </script>
+  <script defer>
+  (function(){
+    const SUPABASE_URL = "https://oeahpsbnazvijogyxedu.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9lYWhwc2JuYXp2aWpvZ3l4ZWR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc2MzIxMDQsImV4cCI6MjA3MzIwODEwNH0.FFx6EfbVu2FGGdsfLHGAUASSfsek679Q1z5gDcYqaPE";
+    let supabaseClient;
+
+    function $(id){ return document.getElementById(id); }
+    function toast(msg){ const t=$('toast'); t.innerText=msg; t.style.display='block'; setTimeout(()=>t.style.display='none',3000); }
+
+    async function init(){
+      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      const { data: { user } } = await supabaseClient.auth.getUser();
+      if(user){ onSignedIn(user); }
+      document.getElementById('login-form').addEventListener('submit', doLogin);
+      document.getElementById('logout').addEventListener('click', doLogout);
+      document.getElementById('bulkBtn').addEventListener('click', bulkApplyImages);
+      document.getElementById('fillBtn').addEventListener('click', fillDefaultsForEmpty);
+      loadTagListMinimal();
+    }
+
+    async function doLogin(e){
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      if(!email || !password) return toast('Enter email & password');
+      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if(error) return toast('Login failed: '+error.message);
+      onSignedIn(data.user);
+    }
+
+    async function onSignedIn(user){
+      const admin = await supabaseClient.from('admins').select('user_id').eq('user_id', user.id).maybeSingle();
+      if(!admin.data){ toast('This account is not whitelisted'); await supabaseClient.auth.signOut(); return; }
+      document.getElementById('who').innerText = user.email;
+      document.getElementById('gate').style.display='none';
+      document.getElementById('panel').style.display='block';
+      await Promise.all([loadPlayers(true), loadAdmin(), loadTagImagesManager()]);
+    }
+
+    async function doLogout(){
+      await supabaseClient.auth.signOut();
+      document.getElementById('panel').style.display='none';
+      document.getElementById('gate').style.display='flex';
+    }
+
+    async function loadAdmin(){
+      const tags = await supabaseClient.from('tags').select('*').order('id');
+      document.getElementById('tag-list').innerHTML = (tags.data||[]).map(t=>`<div>${t.id} — ${t.label||''} (${t.points||0} pts)</div>`).join("");
+      const finds = await supabaseClient.from('finds').select('found_at, tag_id, score_awarded').order('found_at', { ascending:false }).limit(10);
+      document.getElementById('live-finds').innerHTML = (finds.data||[]).map(f=>`<div>${new Date(f.found_at).toLocaleTimeString()} — ${f.tag_id} (+${f.score_awarded})</div>`).join("");
+    }
+
+    async function loadPlayers(){
+      const q = supabaseClient.from('players').select('id,nickname,phone').order('created_at',{ascending:false});
+      const players = await q.limit(200);
+      const ids = (players.data||[]).map(p=>p.id);
+      if(ids.length===0){ document.getElementById('playersTable').innerHTML = "<tr><td colspan='5' class='muted'>No players found</td></tr>"; return; }
+      const [f, a] = await Promise.all([
+        supabaseClient.from('finds').select('player_id, score_awarded').in('player_id', ids),
+        supabaseClient.from('adjustments').select('player_id, delta').in('player_id', ids)
+      ]);
+      const findsBy = new Map(); (f.data||[]).forEach(x=> findsBy.set(x.player_id, (findsBy.get(x.player_id)||0)+(x.score_awarded||0)));
+      const adjBy = new Map(); (a.data||[]).forEach(x=> adjBy.set(x.player_id, (adjBy.get(x.player_id)||0)+(x.delta||0)));
+
+      const tbody = document.getElementById('playersTable'); tbody.innerHTML = "";
+      (players.data||[]).forEach(p=>{
+        const base = findsBy.get(p.id)||0, extra = adjBy.get(p.id)||0, total = base+extra;
+        const tr = document.createElement('tr');
+        const phoneOk = p.phone && p.phone.startsWith("+");
+        const nickOk = p.nickname && p.nickname.trim().length>=2;
+        tr.innerHTML = `
+          <td>${nickOk ? p.nickname : (p.nickname||p.id.slice(0,8))} ${phoneOk?'<span class="oktag">phone ✓</span>':'<span class="muted">no phone</span>'}</td>
+          <td class="right"><b>${total}</b> <span class="muted">(tags: ${base} / adj: ${extra})</span></td>
+          <td><input type="number" step="1" value="0" style="width:90px" /></td>
+          <td><input type="text" placeholder="Reason (optional)" style="min-width:180px" /></td>
+          <td><button>Apply</button></td>`;
+        const [deltaI, reasonI, btn] = [tr.children[2].children[0], tr.children[3].children[0], tr.children[4].children[0]];
+        btn.onclick = async ()=>{
+          const delta = parseInt(deltaI.value||"0",10); if(!delta) return toast("Enter a non-zero delta");
+          const reason = reasonI.value||null;
+          const { data: session } = await supabaseClient.auth.getUser();
+          const admin_id = session?.user?.id || null;
+          const { error } = await supabaseClient.from('adjustments').insert({ player_id: p.id, delta, reason, admin_id });
+          if(error) return toast("Failed: "+error.message);
+          toast(`Applied ${delta>0?'+':''}${delta} to ${p.nickname||p.id.slice(0,8)}`);
+          await loadPlayers();
+        };
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function loadTagImagesManager(){
+      const { data, error } = await supabaseClient.from('tags').select('id,label,points,image_url').order('id');
+      if(error) return (document.getElementById('img-mgr').innerHTML = '<div class="muted">Error loading tags</div>');
+      const rows = (data||[]).map(t=>{
+        const src = t.image_url || `/images/${String(t.id).toUpperCase()}.jpg`;
+        return `
+        <div class="img-row">
+          <img src="${src}" alt="${t.label||t.id}"/>
+          <div>
+            <div><b>${t.label||t.id}</b> <span class="muted">(${t.id} • ${t.points||0} pts)</span></div>
+            <input type="text" id="img-${t.id}" placeholder="https://... or /images/NAME.webp" value="${t.image_url||''}" style="width:100%"/>
+            <div class="row">
+              <button onclick="saveImageUrl('${t.id}')" class="primary">Save URL</button>
+              <button onclick="previewImageUrl('${t.id}')">Preview</button>
+              <span class="muted">Blank = fallback /images/${String(t.id).toUpperCase()}.jpg</span>
+            </div>
+            <div id="img-status-${t.id}" class="muted"></div>
+          </div>
+        </div>`;
+      }).join('');
+      document.getElementById('img-mgr').innerHTML = rows || '<div class="muted">No tags yet.</div>';
+    }
+
+    window.previewImageUrl = function(id){
+      const v = (document.getElementById(`img-${id}`).value || '').trim() || `/images/${String(id).toUpperCase()}.jpg`;
+      window.open(v,"_blank");
+    };
+    window.saveImageUrl = async function(id){
+      const v = (document.getElementById(`img-${id}`).value || '').trim() || null;
+      const { error } = await supabaseClient.from('tags').update({ image_url: v }).eq('id', id);
+      const el = document.getElementById(`img-status-${id}`);
+      if(error) el.innerText = "Save failed: "+error.message;
+      else { el.innerText="Saved ✓"; setTimeout(()=>el.innerText="",1500); }
+      await loadTagImagesManager();
+    };
+    async function bulkApplyImages(){
+      const txt = (document.getElementById('bulkInput').value || '').trim();
+      if(!txt) return toast("Paste lines: TAGID, URL");
+      const lines = txt.split(/\n+/).map(s=>s.trim()).filter(Boolean); let ok=0, fail=0;
+      for(const line of lines){
+        const parts = line.split(',');
+        if(parts.length<2) { fail++; continue; }
+        const id=parts[0].trim(); const url=parts.slice(1).join(',').trim();
+        const { error } = await supabaseClient.from('tags').update({ image_url: url || null }).eq('id', id);
+        if(error) fail++; else ok++;
+      }
+      toast(`Bulk updated: ${ok} ok / ${fail} failed`);
+      await loadTagImagesManager();
+    }
+    async function fillDefaultsForEmpty(){
+      const { data } = await supabaseClient.from('tags').select('id,image_url');
+      const empties=(data||[]).filter(t=>!t.image_url);
+      for(const t of empties){
+        const def=`/images/${String(t.id).toUpperCase()}.jpg`;
+        await supabaseClient.from('tags').update({ image_url:def }).eq('id',t.id);
+      }
+      toast(`Filled defaults for ${empties.length} tags`);
+      await loadTagImagesManager();
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  })();
+  </script>
+</head>
+<body>
+  <header>
+    <img src="logo.png" alt="Munchies Logo" />
+    <div class="spacer"></div>
+    <button id="logout" class="primary">Sign out</button>
+  </header>
+
+  <!-- Login Gate -->
+  <section id="gate">
+    <div class="gate-box card">
+      <div class="title">Admin Sign In</div>
+      <form id="login-form">
+        <input id="email" type="email" placeholder="Email" autocomplete="username" required />
+        <input id="password" type="password" placeholder="Password" autocomplete="current-password" required />
+        <button type="submit" class="primary" style="width:100%;">Sign in</button>
+      </form>
+      <div class="muted">Must be whitelisted in <code>public.admins</code>.</div>
+    </div>
+  </section>
+
+  <!-- Admin Panel -->
+  <main id="panel" style="display:none;">
+    <div class="card"><span class="pill" id="who"></span></div>
+
+    <h3>Players (adjust points)</h3>
+    <table>
+      <thead><tr><th>Player</th><th class="right">Points</th><th>Δ (e.g. -5 or 10)</th><th>Reason</th><th></th></tr></thead>
+      <tbody id="playersTable"></tbody>
+    </table>
+
+    <h3>Tags</h3>
+    <div id="tag-list" class="card"></div>
+
+    <h3>Tag Images Manager</h3>
+    <div class="card">
+      <div class="row">
+        <button id="fillBtn" class="primary">Fill defaults for empty</button>
+      </div>
+      <textarea id="bulkInput" class="bulkbox" placeholder="Bulk lines: TAGID, URL"></textarea>
+      <div class="row">
+        <button id="bulkBtn" class="primary">Apply Bulk</button>
+      </div>
+      <div id="img-mgr" class="admin-grid" style="margin-top:10px;"></div>
+    </div>
+
+    <h3>Live Finds</h3>
+    <div id="live-finds" class="card"></div>
+  </main>
+
+  <div id="toast" class="toast"></div>
+</body>
+</html>

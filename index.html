@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -18,516 +17,167 @@
       background:radial-gradient(ellipse at top, rgba(0,0,0,.55), rgba(0,0,0,.78) 60%);
       z-index:-1;
     }
-    header {
-      backdrop-filter: blur(4px);
-      background:linear-gradient(90deg, rgba(10,8,12,.75), rgba(10,8,12,.35));
-      padding:8px 12px; display:flex; align-items:center; gap:10px;
-      position:sticky; top:0; z-index:5; border-bottom:1px solid var(--line);
-    }
-    .brand { display:flex; align-items:center; gap:10px; min-width:0; text-decoration:none; }
+    header { backdrop-filter: blur(4px); background:linear-gradient(90deg, rgba(10,8,12,.75), rgba(10,8,12,.35));
+      padding:8px 12px; display:flex; align-items:center; gap:10px; position:sticky; top:0; z-index:5; border-bottom:1px solid var(--line); }
     .brand img { width:104px; height:auto; display:block; }
     .spacer { flex:1; }
     .tabs { display:flex; gap:8px; }
-    .tabs button {
-      background:var(--brand); border:none; padding:10px 16px; border-radius:999px;
-      font-weight:800; cursor:pointer; box-shadow:0 6px 18px rgba(0,0,0,.25);
-    }
+    .tabs button { background:var(--brand); border:none; padding:10px 16px; border-radius:999px; font-weight:800; cursor:pointer; box-shadow:0 6px 18px rgba(0,0,0,.25); }
     .tabs button.active { background:var(--brand2); color:#2b1600 }
     main { padding:18px; }
-    section { display:none; }
-    section.active { display:block; }
-    .toast { position:fixed; bottom:12px; right:12px; background:#1a141f; border:1px solid var(--line); padding:10px 12px; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.35); }
+    section { display:none; } section.active { display:block; }
+    .toast { position:fixed; bottom:12px; right:12px; background:#1a141f; border:1px solid var(--line); padding:10px 12px; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.35); display:none; }
     input, button, textarea, select { margin:6px 0; padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:rgba(18,16,24,.85); color:#fff; }
-    input::placeholder { color:#cabbdc; }
-    .muted { color:var(--muted); font-size:12px; }
+    input::placeholder { color:#cabbdc; } .muted { color:var(--muted); font-size:12px; }
     .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
     .warn { background:rgba(80,10,10,.6); border:1px solid #6b1c1c; color:#ffd0d0; padding:10px 12px; border-radius:10px; margin:8px 0; }
     .oktag { background:#112a17; border:1px solid #1e4a2a; color:#b4f3c6; padding:6px 10px; border-radius:999px; font-size:12px; display:inline-block }
     table { width:100%; border-collapse:collapse; margin-top:8px; }
     th, td { border-bottom:1px solid var(--line); padding:8px; text-align:left; vertical-align:middle; }
-    td.right { text-align:right }
-    .pill { background:#201826; border:1px solid var(--line); padding:4px 8px; border-radius:999px; font-size:12px; }
+    td.right { text-align:right } .pill { background:#201826; border:1px solid var(--line); padding:4px 8px; border-radius:999px; font-size:12px; }
     .card { border:1px solid var(--line); background:rgba(18,16,24,.78); border-radius:14px; padding:12px; margin:16px 0; box-shadow:0 12px 36px rgba(0,0,0,.35); }
-    .list { list-style:none; padding:0; margin:0 }
-    .item { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px dashed var(--line) }
+    .list { list-style:none; padding:0; margin:0 } .item { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px dashed var(--line) }
     .item:last-child { border-bottom:none }
-
-    /* Podium styles */
     .podium { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px; align-items:end; margin:8px 0 16px; }
     .podium .slot { position:relative; text-align:center; background:rgba(18,16,24,.88); border:1px solid var(--line); border-radius:12px 12px 6px 6px; box-shadow:0 10px 30px rgba(0,0,0,.35); padding:10px 8px; }
     .podium .slot .place { position:absolute; top:-10px; left:50%; transform:translateX(-50%); font-weight:900; font-size:12px; padding:4px 8px; border-radius:999px; background:#00000080; border:1px solid var(--line); }
-    .podium .slot .name { font-weight:800; margin-top:6px; }
-    .podium .slot .pts { font-size:12px; color:var(--muted); }
-    .podium .gold { height:150px; border-top:6px solid var(--gold); }
-    .podium .silver { height:130px; border-top:6px solid var(--silver); }
-    .podium .bronze { height:110px; border-top:6px solid var(--bronze); }
+    .podium .slot .name { font-weight:800; margin-top:6px; } .podium .slot .pts { font-size:12px; color:var(--muted); }
+    .podium .gold { height:150px; border-top:6px solid var(--gold); } .podium .silver { height:130px; border-top:6px solid var(--silver); } .podium .bronze { height:110px; border-top:6px solid var(--bronze); }
     .podium .medal { font-size:18px; display:block; margin-bottom:4px; }
     .lb-rest .rowline { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed var(--line); }
-    .lb-rest .rowline:last-child { border-bottom:none; }
     .lb-rest .rank { width:26px; text-align:center; opacity:.85; }
-    .two-col { display:grid; grid-template-columns:1fr; gap:16px; }
-    @media (min-width: 900px) {
-      .two-col { grid-template-columns: 1.2fr .8fr; }
-    }
-
-    /* Gallery */
-    .gallery { display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; }
-    @media (min-width: 520px) { .gallery { grid-template-columns: repeat(4, 1fr); } }
-    @media (min-width: 820px) { .gallery { grid-template-columns: repeat(6, 1fr); } }
+    .two-col { display:grid; grid-template-columns:1fr; gap:16px; } @media (min-width: 900px) { .two-col { grid-template-columns: 1.2fr .8fr; } }
+    .gallery { display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; } @media (min-width: 520px) { .gallery { grid-template-columns: repeat(4, 1fr); } } @media (min-width: 820px) { .gallery { grid-template-columns: repeat(6, 1fr); } }
     .tile { position:relative; border-radius:12px; overflow:hidden; background:#0f0d12; border:1px solid var(--line); }
     .tile img { width:100%; height:100%; object-fit:cover; display:block; aspect-ratio: 1 / 1; filter: grayscale(100%) contrast(0.7) brightness(0.7); transition: filter .2s ease, transform .2s ease; }
     .tile.found img { filter: none; }
     .tile .cap { position:absolute; bottom:0; left:0; right:0; background:linear-gradient(180deg, transparent, rgba(0,0,0,.75)); padding:6px 8px; font-size:12px; }
     .tile .badge { position:absolute; top:6px; right:6px; background:#162a16; border:1px solid #2a5a2a; color:#b9f7c8; padding:4px 6px; font-size:10px; border-radius:999px; display:none; }
     .tile.found .badge { display:inline-block; }
-
-    /* Admin: Tag Images Manager */
-    .admin-grid { display:grid; grid-template-columns: 1fr; gap:10px; }
-    .img-row { display:grid; grid-template-columns: 120px 1fr; gap:10px; align-items:center; padding:8px; border:1px solid var(--line); border-radius:10px; background:rgba(22,18,28,.6); }
-    .img-row img { width:120px; aspect-ratio:1/1; object-fit:cover; border-radius:8px; border:1px solid var(--line); }
-    .img-row .meta { font-size:12px; color:var(--muted); }
-    .bulkbox { width:100%; min-height:110px; }
   </style>
   <script src="https://unpkg.com/@supabase/supabase-js@2" defer></script>
-  <script defer>
-  window.onerror = function(msg){ const t=document.getElementById('toast'); if(t){ t.innerText='JS error: '+msg; t.style.display='block'; } };
-  </script>
   <script defer>
   (function(){
     const SUPABASE_URL = "https://oeahpsbnazvijogyxedu.supabase.co";
     const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9lYWhwc2JuYXp2aWpvZ3l4ZWR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc2MzIxMDQsImV4cCI6MjA3MzIwODEwNH0.FFx6EfbVu2FGGdsfLHGAUASSfsek679Q1z5gDcYqaPE";
     let supabaseClient;
-
     function ready(fn){ if(document.readyState!=='loading') fn(); else document.addEventListener('DOMContentLoaded', fn); }
     function $(id){ return document.getElementById(id); }
     function toast(msg){ const t=$('toast'); if(!t) return; t.innerText=msg; t.style.display='block'; setTimeout(()=>t.style.display='none',3000); }
-
-    function badName(s){ if(!s) return true;
-      const banned = ["fuck","shit","bitch","cunt","asshole","bastard","dick","cock","pussy","twat","slut","whore","prick","bollocks","bugger","arse","damn","goddamn","hell",
-        "hitler","stalin","mussolini","putin","lenin","mao","kim jong","kim jong un","xi jinping","trump","donald trump","biden","joe biden","obama","barack",
-        "bush","reagan","saddam","bin laden","gaddafi","pol pot","castro","netanyahu","modi","erdogan","bolsonaro","assad","duarte","mohammed bin"];
-      const t=s.toLowerCase(); return banned.some(w=>t.includes(w));
-    }
+    function badName(s){ if(!s) return true; const banned=["fuck","shit","bitch","cunt","asshole","bastard","dick","cock","pussy","twat","slut","whore","prick","bollocks","bugger","arse","damn","goddamn","hell","hitler","stalin","mussolini","putin","lenin","mao","kim jong","kim jong un","xi jinping","trump","donald trump","biden","joe biden","obama","barack","bush","reagan","saddam","bin laden","gaddafi","pol pot","castro","netanyahu","modi","erdogan","bolsonaro","assad","duarte","mohammed bin"]; const t=s.toLowerCase(); return banned.some(w=>t.includes(w)); }
     function cleanName(s){ return (s||"").replace(/\s+/g," ").trim(); }
-    function normalizePhone(input){
-      if(!input) return "";
-      const digits = (""+input).replace(/\D+/g, "");
-      if(digits.length === 10) return "+1"+digits;
-      if(digits.length === 11 && digits.startsWith("1")) return "+"+digits;
-      if(((input+"").startsWith("+") && digits.length >= 10 && digits.length <= 15)) return "+"+digits;
-      return "";
-    }
+    function normalizePhone(input){ if(!input) return ""; const digits=(""+input).replace(/\D+/g,""); if(digits.length===10) return "+1"+digits; if(digits.length===11 && digits.startsWith("1")) return "+"+digits; if(((input+"").startsWith("+") && digits.length>=10 && digits.length<=15)) return "+"+digits; return ""; }
     function isValidPhone(input){ return !!normalizePhone(input); }
-
-    let playerId = null;
-    let incomingTag = null;
-
-    function activate(view){
-      document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
-      $(view).classList.add('active');
-      document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
-      $('btn-'+view).classList.add('active');
-      if(view==='leaderboard') loadLeaderboard();
-      if(view==='admin') checkAdminSession();
-    }
-    window.show = activate;
-
+    let playerId=null, incomingTag=null;
+    function activate(view){ document.querySelectorAll('section').forEach(s=>s.classList.remove('active')); $(view).classList.add('active'); document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active')); $('btn-'+view).classList.add('active'); if(view==='leaderboard') loadLeaderboard(); }
+    window.show=activate;
     ready(async function init(){
-      try{
-        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-      }catch(e){ toast('Failed to init Supabase'); return; }
-
-      const qs = new URLSearchParams(location.search);
-      incomingTag = (qs.get('tag')||'').trim().toUpperCase();
-      playerId = localStorage.getItem('player_id');
-
-      await ensurePlayer();
+      supabaseClient = window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+      const qs=new URLSearchParams(location.search);
+      incomingTag=(qs.get('tag')||'').trim().toUpperCase();
+      const stored=localStorage.getItem('player_id');
+      if(stored) playerId=stored;
+      if(incomingTag) localStorage.setItem('pending_tag', incomingTag);
       await renderPlay();
-      if(incomingTag) await tryAutoClaimPending();
+      await loadProgress(); await loadMyFinds(); await renderGallery();
+      if(localStorage.getItem('pending_tag')) toast("Scan captured — finish your profile to log it.");
     });
-
-    async function ensurePlayer(){
-      if(!playerId){
-        const { data, error } = await supabaseClient.from('players').insert({}).select().single();
-        if(error){ toast("Player create failed"); return; }
-        playerId = data.id; localStorage.setItem('player_id', playerId);
-      }
-      if(incomingTag){ localStorage.setItem('pending_tag', incomingTag); }
-    }
-
+    async function fetchPlayer(id){ return supabaseClient.from('players').select('id,nickname,phone').eq('id',id).maybeSingle(); }
     async function renderPlay(){
-      const res = await supabaseClient.from('players').select('nickname, phone').eq('id', playerId).maybeSingle();
-      let data = res.data || {};
-      if(res.error){ data = { nickname: "", phone: "" }; }
-      const nickname = cleanName(data.nickname||"");
-      const phoneOk = !!data.phone && isValidPhone(data.phone);
-      const nickOk = !!nickname && nickname.length>=2 && !badName(nickname);
-      const ok = phoneOk && nickOk;
-
+      let data=null;
+      if(playerId){ const res=await fetchPlayer(playerId); if(res.data) data=res.data; else playerId=null; }
+      const hasId = !!playerId;
+      if(!hasId){
+        $('profileBanner').style.display='block'; $('profileEditor').style.display='block'; $('profileSummary').style.display='none';
+        $('nickname').value=''; $('phone').value='';
+        const p = localStorage.getItem('pending_tag'); const note=$('pendingNote'); if(p){ note.innerText=`You scanned: ${p}. Save your profile to log it.`; note.style.display='block'; } else note.style.display='none';
+        return;
+      }
+      const nickname = cleanName(data.nickname||""); const phoneOk = !!data.phone && isValidPhone(data.phone);
+      const nickOk = !!nickname && nickname.length>=2 && !badName(nickname); const ok = phoneOk && nickOk;
       $('profileBanner').style.display = ok ? 'none' : 'block';
       $('profileEditor').style.display = ok ? 'none' : 'block';
       $('profileSummary').style.display = ok ? 'block' : 'none';
-
-      if(ok){
-        $('summaryNick').innerText = nickname;
-      } else {
-        $('nickname').value = nickname;
-        $('phone').value = data.phone || "";
-        const p = localStorage.getItem('pending_tag');
-        const note = $('pendingNote');
-        if(p){ note.innerText = `You scanned: ${p}. Save your profile to log it.`; note.style.display='block'; }
-        else { note.style.display='none'; }
-      }
-
-      await loadProgress();
-      await loadMyFinds();
-      await renderGallery();
+      if(ok) $('summaryNick').innerText = nickname; else { $('nickname').value=nickname; $('phone').value=data.phone||""; }
     }
-
-    window.saveProfile = async function saveProfile(){
-      let nickname = cleanName($('nickname').value);
-      const phoneRaw = $('phone').value.trim();
-      const phone = normalizePhone(phoneRaw);
-
-      if(!nickname){ toast("Nickname is required"); $('nickname').focus(); return; }
-      if(nickname.length < 2){ toast("Nickname must be at least 2 chars"); $('nickname').focus(); return; }
-      if(badName(nickname)){ toast("Please choose a different nickname"); $('nickname').focus(); return; }
-      if(!isValidPhone(phoneRaw)){ toast("Enter a valid phone number"); $('phone').focus(); return; }
-
-      const { error } = await supabaseClient.from('players').update({nickname, phone}).eq('id',playerId);
-      if(error){ toast("Save failed: "+error.message); return; }
-      $('profileOk').style.display='inline-block';
-      setTimeout(()=>$('profileOk').style.display='none', 1200);
-      await renderPlay();
-      await tryAutoClaimPending();
-      loadLeaderboard();
+    async function findPlayerIdByPhoneE164(e164){
+      if(!e164) return null;
+      const q = await supabaseClient.from('players').select('id, nickname, phone').order('created_at',{ascending:true});
+      const rows = q.data||[];
+      const match = rows.find(p => normalizePhone(p.phone)===e164);
+      return match ? match.id : null;
     }
-
-    async function tryAutoClaimPending(){
-      const p = (localStorage.getItem('pending_tag') || "").trim().toUpperCase();
-      if(!p) return;
-      const { data } = await supabaseClient.from('players').select('nickname, phone').eq('id', playerId).maybeSingle();
-      const ok = data && data.nickname && data.nickname.trim().length>=2 && !badName(data.nickname) && data.phone && isValidPhone(data.phone);
-      if(!ok){ return; }
-      const prior = await supabaseClient.from('finds').select('id').eq('player_id', playerId).eq('tag_id', p).maybeSingle();
+    async function tryAutoClaim(){
+      const p=(localStorage.getItem('pending_tag')||'').trim().toUpperCase();
+      if(!p || !playerId) return;
+      const prior=await supabaseClient.from('finds').select('id').eq('player_id',playerId).eq('tag_id',p).maybeSingle();
       if(prior.data){ localStorage.removeItem('pending_tag'); history.replaceState({}, "", location.pathname+"?v=play"); return; }
-      const tag = await supabaseClient.from('tags').select('*').eq('id', p).maybeSingle();
+      const tag=await supabaseClient.from('tags').select('*').eq('id',p).maybeSingle();
       if(!tag.data || !tag.data.active){ toast("Invalid or inactive token"); localStorage.removeItem('pending_tag'); history.replaceState({}, "", location.pathname+"?v=play"); return; }
-      const pts = tag.data.points || 0;
-      const { error } = await supabaseClient.from('finds').insert({ player_id:playerId, tag_id:p, score_awarded: pts });
-      if(error) toast("Log failed: "+error.message);
-      else { toast(`Logged ${p} (+${pts} pts)`); await loadProgress(); await loadMyFinds(); await renderGallery(); }
-      localStorage.removeItem('pending_tag');
-      history.replaceState({}, "", location.pathname+"?v=play");
+      const pts=tag.data.points||0;
+      const { error }=await supabaseClient.from('finds').insert({ player_id:playerId, tag_id:p, score_awarded:pts });
+      if(error) toast("Log failed: "+error.message); else { toast(`Logged ${p} (+${pts} pts)`); await loadProgress(); await loadMyFinds(); await renderGallery(); }
+      localStorage.removeItem('pending_tag'); history.replaceState({}, "", location.pathname+"?v=play");
     }
-
+    window.saveProfile = async function saveProfile(){
+      let nickname = cleanName(document.getElementById('nickname').value);
+      const phoneRaw = document.getElementById('phone').value.trim();
+      const e164 = normalizePhone(phoneRaw);
+      if(!nickname){ toast("Nickname is required"); return; }
+      if(nickname.length<2){ toast("Nickname must be at least 2 chars"); return; }
+      if(badName(nickname)){ toast("Please choose a different nickname"); return; }
+      if(!isValidPhone(phoneRaw)){ toast("Enter a valid phone number"); return; }
+      const existingId = await findPlayerIdByPhoneE164(e164);
+      if(existingId){
+        playerId = existingId; localStorage.setItem('player_id', playerId);
+        await supabaseClient.from('players').update({ nickname, phone: e164 }).eq('id', playerId);
+        document.getElementById('profileOk').style.display='inline-block'; setTimeout(()=>document.getElementById('profileOk').style.display='none',1200);
+        await renderPlay(); await tryAutoClaim(); await loadLeaderboard(); return;
+      }
+      const ins = await supabaseClient.from('players').insert({ nickname, phone: e164 }).select().single();
+      if(ins.error) return toast("Save failed: "+ins.error.message);
+      playerId = ins.data.id; localStorage.setItem('player_id', playerId);
+      document.getElementById('profileOk').style.display='inline-block'; setTimeout(()=>document.getElementById('profileOk').style.display='none',1200);
+      await renderPlay(); await tryAutoClaim(); await loadLeaderboard();
+    }
     async function loadProgress(){
       const tags = await supabaseClient.from('tags').select('*').eq('active', true);
       const finds = await supabaseClient.from('finds').select('tag_id, score_awarded').eq('player_id', playerId);
-      const total = (tags.data||[]).length;
-      const found = new Set((finds.data||[]).map(f=>f.tag_id)).size;
-      const points = (finds.data||[]).reduce((a,f)=>a+(f.score_awarded||0),0);
-      $('progress').innerText = `Found: ${found} / ${total} • Points: ${points}`;
+      const total=(tags.data||[]).length; const found=new Set((finds.data||[]).map(f=>f.tag_id)).size; const points=(finds.data||[]).reduce((a,f)=>a+(f.score_awarded||0),0);
+      document.getElementById('progress').innerText = `Found: ${found} / ${total} • Points: ${points}`;
     }
-
     async function loadMyFinds(){
-      const { data, error } = await supabaseClient
-        .from('finds')
-        .select('found_at, tag_id, tags(label, points)')
-        .eq('player_id', playerId)
-        .order('found_at', { ascending:false });
-      const list = $('myFinds');
-      const empty = $('noFinds');
-      list.innerHTML = "";
-      if(error || !data || !data.length){ empty.style.display='block'; return; }
-      empty.style.display='none';
-      data.forEach(r=>{
-        const li = document.createElement('li');
-        li.className = 'item';
-        const label = (r.tags && r.tags.label) ? r.tags.label : r.tag_id;
-        const pts = (r.tags && typeof r.tags.points!=='undefined') ? r.tags.points : '';
-        li.innerHTML = `<span><b>${label}</b> <span class="muted">(${r.tag_id})</span></span><span class="muted">${new Date(r.found_at).toLocaleTimeString()}${pts!==''?` • +${pts} pts`:''}</span>`;
-        list.appendChild(li);
-      });
+      const { data, error }=await supabaseClient.from('finds').select('found_at, tag_id, tags(label, points)').eq('player_id',playerId).order('found_at',{ascending:false});
+      const list=document.getElementById('myFinds'); const empty=document.getElementById('noFinds'); list.innerHTML="";
+      if(error || !data || !data.length){ empty.style.display='block'; return; } empty.style.display='none';
+      data.forEach(r=>{ const li=document.createElement('li'); li.className='item'; const label=(r.tags&&r.tags.label)?r.tags.label:r.tag_id; const pts=(r.tags&&typeof r.tags.points!=='undefined')?r.tags.points:'';
+        li.innerHTML=`<span><b>${label}</b> <span class="muted">(${r.tag_id})</span></span><span class="muted">${new Date(r.found_at).toLocaleTimeString()}${pts!==''?` • +${pts} pts`:''}</span>`; list.appendChild(li); });
     }
-
-    // --- Gallery ---
     async function renderGallery(){
-      const tg = await supabaseClient.from('tags').select('id,label,image_url,active,points').order('id');
-      if(tg.error){ $('gallery').innerHTML = '<div class="muted">Error loading gallery</div>'; return; }
-      const my = await supabaseClient.from('finds').select('tag_id').eq('player_id', playerId);
-      const foundSet = new Set((my.data||[]).map(r=>r.tag_id));
-
-      const nodes = (tg.data||[]).map(t=>{
-        const found = foundSet.has(t.id);
-        const src = pickImage(t);
-        const label = t.label || t.id;
-        return `
-          <div class="tile ${found?'found':''}" title="${label}">
-            <img loading="lazy" src="${src}" alt="${label}"/>
-            <span class="badge">✓ Found</span>
-            <div class="cap"><b>${label}</b> <span class="muted">(${t.points||0} pts)</span></div>
-          </div>
-        `;
-      }).join('');
-      $('gallery').innerHTML = nodes || '<div class="muted">No tags added yet.</div>';
+      const tg=await supabaseClient.from('tags').select('id,label,image_url,active,points').order('id');
+      if(tg.error) return (document.getElementById('gallery').innerHTML='<div class="muted">Error loading gallery</div>');
+      const my=await supabaseClient.from('finds').select('tag_id').eq('player_id',playerId);
+      const foundSet=new Set((my.data||[]).map(r=>r.tag_id));
+      const nodes=(tg.data||[]).map(t=>{ const found=foundSet.has(t.id); const src=t.image_url||`/images/${String(t.id).toUpperCase()}.jpg`; const label=t.label||t.id;
+        return `<div class="tile ${found?'found':''}" title="${label}"><img loading="lazy" src="${src}" alt="${label}"/><span class="badge">✓ Found</span><div class="cap"><b>${label}</b> <span class="muted">(${t.points||0} pts)</span></div></div>`; }).join('');
+      document.getElementById('gallery').innerHTML = nodes || '<div class="muted">No tags added yet.</div>';
     }
-    function pickImage(t){
-      if(t.image_url) return t.image_url;
-      return `/images/${String(t.id).toUpperCase()}.jpg`;
-    }
-
-    // --- Leaderboard + Live finds ---
     async function loadLeaderboard(){
-      const finds = await supabaseClient.from('finds').select('player_id, score_awarded');
-      if(finds.error) { $('leaders').innerHTML = "<div class='muted'>Error loading leaderboard</div>"; return; }
-      const scores = new Map();
-      (finds.data||[]).forEach(r=>{
-        const key = String(r.player_id);
-        scores.set(key,(scores.get(key)||0)+(r.score_awarded||0));
-      });
-      const adj = await supabaseClient.from('adjustments').select('player_id, delta');
-      if(!adj.error){
-        (adj.data||[]).forEach(a=>{
-          const key = String(a.player_id);
-          scores.set(key,(scores.get(key)||0)+(a.delta||0));
-        });
-      }
-      const ids = Array.from(scores.keys());
-      if(ids.length===0) { $('leaders').innerHTML = "<div class='muted'>No plays yet</div>"; $('liveBoard').innerHTML=''; return; }
-      const players = await supabaseClient.from('players').select('id,nickname').in('id', ids);
-      let names = {};
-      (players.data||[]).forEach(p=> names[String(p.id)] = p.nickname || "");
-      const arr = ids.map(id=>({ id, name: names[id]||id.slice(0,8), pts: scores.get(id) }))
-                     .sort((a,b)=>b.pts-a.pts);
-
-      const gold = arr[0], silver = arr[1], bronze = arr[2];
-      let podiumHTML = `
+      const finds=await supabaseClient.from('finds').select('player_id, score_awarded'); if(finds.error) return (document.getElementById('leaders').innerHTML="<div class='muted'>Error loading leaderboard</div>");
+      const scores=new Map(); (finds.data||[]).forEach(r=>{ const k=String(r.player_id); scores.set(k,(scores.get(k)||0)+(r.score_awarded||0)); });
+      const adj=await supabaseClient.from('adjustments').select('player_id, delta'); if(!adj.error) (adj.data||[]).forEach(a=>{ const k=String(a.player_id); scores.set(k,(scores.get(k)||0)+(a.delta||0)); });
+      const ids=Array.from(scores.keys()); if(!ids.length) return (document.getElementById('leaders').innerHTML="<div class='muted'>No plays yet</div>");
+      const players=await supabaseClient.from('players').select('id,nickname').in('id',ids); const names={}; (players.data||[]).forEach(p=>names[String(p.id)]=p.nickname||p.id.slice(0,8));
+      const arr=ids.map(id=>({id,name:names[id]||id.slice(0,8),pts:scores.get(id)})).sort((a,b)=>b.pts-a.pts);
+      const gold=arr[0],silver=arr[1],bronze=arr[2];
+      document.getElementById('leaders').innerHTML = `
         <div class="podium card">
-          <div class="slot silver">
-            <span class="place">2ND</span>
-            <span class="medal">🥈</span>
-            <div class="name">${silver?silver.name:'—'}</div>
-            <div class="pts">${silver?silver.pts:0} pts</div>
-          </div>
-          <div class="slot gold">
-            <span class="place">1ST</span>
-            <span class="medal">🥇</span>
-            <div class="name">${gold?gold.name:'—'}</div>
-            <div class="pts">${gold?gold.pts:0} pts</div>
-          </div>
-          <div class="slot bronze">
-            <span class="place">3RD</span>
-            <span class="medal">🥉</span>
-            <div class="name">${bronze?bronze.name:'—'}</div>
-            <div class="pts">${bronze?bronze.pts:0} pts</div>
-          </div>
-        </div>`;
-
-      const rest = arr.slice(3, 50);
-      let restHTML = '<div class="card lb-rest">';
-      rest.forEach((r,i)=>{
-        const rank = i+4;
-        restHTML += `<div class="rowline"><div><span class="rank">${rank}</span> <b>${r.name}</b></div><div>${r.pts} pts</div></div>`;
-      });
-      restHTML += '</div>';
-
-      $('leaders').innerHTML = podiumHTML + (rest.length?restHTML:'<div class="muted">Only a few players so far — keep hunting!</div>');
-
-      await loadLiveFindsBoard();
+          <div class="slot silver"><span class="place">2ND</span><span class="medal">🥈</span><div class="name">${silver?silver.name:'—'}</div><div class="pts">${silver?silver.pts:0} pts</div></div>
+          <div class="slot gold"><span class="place">1ST</span><span class="medal">🥇</span><div class="name">${gold?gold.name:'—'}</div><div class="pts">${gold?gold.pts:0} pts</div></div>
+          <div class="slot bronze"><span class="place">3RD</span><span class="medal">🥉</span><div class="name">${bronze?bronze.name:'—'}</div><div class="pts">${bronze?bronze.pts:0} pts</div></div>
+        </div>`
+        + arr.slice(3,50).map((r,i)=>`<div class="card lb-rest"><div class="rowline"><div><span class="rank">${i+4}</span> <b>${r.name}</b></div><div>${r.pts} pts</div></div></div>`).join('');
     }
-
-    async function loadLiveFindsBoard(){
-      const { data: finds, error } = await supabaseClient
-        .from('finds')
-        .select('player_id, tag_id, found_at, score_awarded, tags(label)')
-        .order('found_at', { ascending:false })
-        .limit(15);
-      if(error){ $('liveBoard').innerHTML = "<div class='muted'>Error loading live finds</div>"; return; }
-      const playerIds = Array.from(new Set((finds||[]).map(f=>f.player_id)));
-      let names = {};
-      if(playerIds.length){
-        const p = await supabaseClient.from('players').select('id,nickname').in('id', playerIds);
-        (p.data||[]).forEach(x=> names[String(x.id)] = x.nickname || x.id.slice(0,8));
-      }
-      const html = (finds||[]).map(f=>{
-        const who = names[String(f.player_id)] || String(f.player_id).slice(0,8);
-        const label = (f.tags && f.tags.label) ? f.tags.label : f.tag_id;
-        const time = new Date(f.found_at).toLocaleTimeString();
-        const pts = typeof f.score_awarded==='number' ? ` • +${f.score_awarded} pts` : '';
-        return `<div class="item"><span><b>${who}</b> found <b>${label}</b></span><span class="muted">${time}${pts}</span></div>`;
-      }).join('');
-      $('liveBoard').innerHTML = `<div class="card">${html || '<div class="muted">No finds yet.</div>'}</div>`;
-    }
-
-    // --- Admin ---
-    async function doAdminLogin(e){
-      e.preventDefault();
-      const email = $('admin-email').value.trim();
-      const password = $('admin-pass').value;
-      if(!email || !password){ toast("Enter email & password"); return; }
-      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-      if(error){ toast("Login failed: "+error.message); return; }
-      await checkAdminSession();
-    }
-    window.doAdminLogin = doAdminLogin;
-
-    async function checkAdminSession(){
-      const { data: { user } } = await supabaseClient.auth.getUser();
-      if(!user){
-        $('admin-panel').style.display='none';
-        $('admin-login').style.display='block';
-        return;
-      }
-      $('whoami').innerText = user.email;
-      const admin = await supabaseClient.from('admins').select('user_id').eq('user_id', user.id).maybeSingle();
-      if(!admin.data){
-        toast("This account is not whitelisted as admin");
-        await supabaseClient.auth.signOut();
-        $('admin-panel').style.display='none';
-        $('admin-login').style.display='block';
-        return;
-      }
-      $('admin-login').style.display='none';
-      $('admin-panel').style.display='block';
-      await Promise.all([loadAdmin(), loadPlayers(true), loadTagImagesManager()]);
-    }
-
-    async function signOut(){
-      await supabaseClient.auth.signOut();
-      $('admin-panel').style.display='none';
-      $('admin-login').style.display='block';
-    }
-    window.signOut = signOut;
-
-    async function loadAdmin(){
-      const tags = await supabaseClient.from('tags').select('*').order('id');
-      $('tag-list').innerHTML = (tags.data||[]).map(t=>`<div>${t.id} — ${t.label||''} (${t.points||0} pts)</div>`).join("");
-      const finds = await supabaseClient.from('finds').select('found_at, tag_id, score_awarded').order('found_at', { ascending:false }).limit(10);
-      $('live-finds').innerHTML = (finds.data||[]).map(f=>`<div>${new Date(f.found_at).toLocaleTimeString()} — ${f.tag_id} (+${f.score_awarded})</div>`).join("");
-    }
-
-    async function loadPlayers(showAll=false){
-      const q = supabaseClient.from('players').select('id,nickname,phone').order('created_at',{ascending:false});
-      let players;
-      const term = $('searchName').value.trim();
-      if(showAll){ players = await q.limit(200); }
-      else if(term){ players = await supabaseClient.from('players').select('id,nickname,phone').ilike('nickname', `%${term}%`).limit(100); }
-      else { players = await q.limit(50); }
-
-      if(players.error){ $('playersTable').innerHTML = "<tr><td colspan='5'>Error loading players</td></tr>"; return; }
-      const ids = (players.data||[]).map(p=>p.id);
-      if(ids.length===0){ $('playersTable').innerHTML = "<tr><td colspan='5' class='muted'>No players found</td></tr>"; return; }
-
-      const [f, a] = await Promise.all([
-        supabaseClient.from('finds').select('player_id, score_awarded').in('player_id', ids),
-        supabaseClient.from('adjustments').select('player_id, delta').in('player_id', ids)
-      ]);
-      const findsBy = new Map(); (f.data||[]).forEach(x=> findsBy.set(x.player_id, (findsBy.get(x.player_id)||0)+(x.score_awarded||0)));
-      const adjBy = new Map(); (a.data||[]).forEach(x=> adjBy.set(x.player_id, (adjBy.get(x.player_id)||0)+(x.delta||0)));
-
-      const tbody = $('playersTable');
-      tbody.innerHTML = "";
-      (players.data||[]).forEach(p=>{
-        const base = findsBy.get(p.id)||0;
-        const extra = adjBy.get(p.id)||0;
-        const total = base + extra;
-        const tr = document.createElement('tr');
-        const phoneOk = p.phone && p.phone.startsWith("+");
-        const nickOk = p.nickname && p.nickname.trim().length>=2 && !badName(p.nickname);
-        tr.innerHTML = `
-          <td>${nickOk ? p.nickname : (p.nickname||p.id.slice(0,8))} ${phoneOk?'<span class="oktag">phone ✓</span>':'<span class="muted">no phone</span>'} ${nickOk?'<span class="oktag">name ✓</span>':'<span class="muted">name?</span>'}</td>
-          <td class="right"><b>${total}</b> <span class="muted">(tags: ${base} / adj: ${extra})</span></td>
-          <td><input type="number" step="1" value="0" style="width:90px" /></td>
-          <td><input type="text" placeholder="Reason (optional)" style="min-width:180px" /></td>
-          <td><button>Apply</button></td>
-        `;
-        const [deltaI, reasonI, btn] = [tr.children[2].children[0], tr.children[3].children[0], tr.children[4].children[0]];
-        btn.onclick = async ()=>{
-          const delta = parseInt(deltaI.value||"0",10);
-          if(!delta) { toast("Enter a non-zero delta"); return; }
-          const reason = reasonI.value||null;
-          const { data: session } = await supabaseClient.auth.getUser();
-          const admin_id = session?.user?.id || null;
-          const { error } = await supabaseClient.from('adjustments').insert({ player_id: p.id, delta, reason, admin_id });
-          if(error){ toast("Failed: "+error.message); return; }
-          toast(`Applied ${delta>0?'+':''}${delta} to ${p.nickname||p.id.slice(0,8)}`);
-          await Promise.all([loadPlayers(showAll), loadLeaderboard()]);
-        };
-        tbody.appendChild(tr);
-      });
-    }
-    window.loadPlayers = loadPlayers;
-
-    // --- Admin: Tag Images Manager
-    async function loadTagImagesManager(){
-      const { data, error } = await supabaseClient.from('tags').select('id,label,points,image_url').order('id');
-      if(error){ $('img-mgr').innerHTML = '<div class="muted">Error loading tags</div>'; return; }
-      const rows = (data||[]).map(t=>{
-        const src = t.image_url || `/images/${String(t.id).toUpperCase()}.jpg`;
-        return `
-        <div class="img-row">
-          <img src="${src}" alt="${t.label||t.id}"/>
-          <div>
-            <div><b>${t.label||t.id}</b> <span class="muted">(${t.id} • ${t.points||0} pts)</span></div>
-            <input type="text" id="img-${t.id}" placeholder="https://... or /images/NAME.webp" value="${t.image_url||''}" style="width:100%"/>
-            <div class="row">
-              <button onclick="saveImageUrl('${t.id}')">Save URL</button>
-              <button onclick="previewImageUrl('${t.id}')">Preview</button>
-              <span class="muted">Blank = will fallback to /images/${String(t.id).toUpperCase()}.jpg</span>
-            </div>
-            <div id="img-status-${t.id}" class="muted"></div>
-          </div>
-        </div>`;
-      }).join('');
-      $('img-mgr').innerHTML = rows || '<div class="muted">No tags yet.</div>';
-    }
-    window.loadTagImagesManager = loadTagImagesManager;
-
-    window.previewImageUrl = function(id){
-      const v = (document.getElementById(`img-${id}`).value || '').trim() || `/images/${String(id).toUpperCase()}.jpg`;
-      window.open(v, "_blank");
-    };
-
-    window.saveImageUrl = async function(id){
-      const v = (document.getElementById(`img-${id}`).value || '').trim() || null;
-      const { error } = await supabaseClient.from('tags').update({ image_url: v }).eq('id', id);
-      const el = document.getElementById(`img-status-${id}`);
-      if(error){ el.innerText = "Save failed: "+error.message; return; }
-      el.innerText = "Saved ✓"; setTimeout(()=>el.innerText="", 1500);
-      await Promise.all([renderGallery(), loadTagImagesManager()]);
-    };
-
-    window.bulkApplyImages = async function(){
-      const txt = (document.getElementById('bulkInput').value || '').trim();
-      if(!txt){ toast("Paste lines: TAGID,URL"); return; }
-      const lines = txt.split(/\n+/).map(s=>s.trim()).filter(Boolean);
-      const updates = [];
-      lines.forEach(line=>{
-        const m = line.split(',');
-        if(m.length>=2) updates.push({ id: m[0].trim(), image_url: m.slice(1).join(',').trim() });
-      });
-      if(!updates.length){ toast("No valid lines found"); return; }
-      let ok=0, fail=0;
-      for(const u of updates){
-        const { error } = await supabaseClient.from('tags').update({ image_url: u.image_url || null }).eq('id', u.id);
-        if(error) fail++; else ok++;
-      }
-      toast(`Bulk updated: ${ok} ok, ${fail} failed`);
-      await Promise.all([renderGallery(), loadTagImagesManager()]);
-    };
-
-    window.fillDefaultsForEmpty = async function(){
-      const { data } = await supabaseClient.from('tags').select('id,image_url');
-      const empties = (data||[]).filter(t=>!t.image_url);
-      for(const t of empties){
-        const def = `/images/${String(t.id).toUpperCase()}.jpg`;
-        await supabaseClient.from('tags').update({ image_url: def }).eq('id', t.id);
-      }
-      toast(`Filled defaults for ${empties.length} tags`);
-      await Promise.all([renderGallery(), loadTagImagesManager()]);
-    };
-
   })();
   </script>
 </head>
@@ -538,14 +188,13 @@
     <nav class="tabs">
       <button onclick="show('play')" id="btn-play" class="active">Play</button>
       <button onclick="show('leaderboard')" id="btn-leaderboard">Leaderboard</button>
-      <button onclick="show('admin')" id="btn-admin">Admin</button>
     </nav>
   </header>
 
   <main>
     <section id="play" class="active">
       <h2>🎃 Player</h2>
-      <div id="profileBanner" class="warn" style="display:none;">📝 Nickname <b>and</b> 📱 Phone are required to play. Enter both and hit <b>Save</b>.</div>
+      <div id="profileBanner" class="warn" style="display:none;">📝 Nickname <b>and</b> 📱 Phone are required. Enter both and hit <b>Save</b> to continue.</div>
 
       <div id="profileEditor" class="card" style="display:none;">
         <div class="row">
@@ -564,11 +213,10 @@
 
       <div id="progress" class="muted"></div>
 
-      <!-- Clue Gallery -->
       <div class="card">
         <h3>🎬 Clue Gallery</h3>
         <div id="gallery" class="gallery"></div>
-        <div class="muted">Images are grayscale until you find the matching tag on-site.</div>
+        <div class="muted">Images are grayscale until you find the matching tag.</div>
       </div>
 
       <div class="card">
@@ -580,69 +228,10 @@
 
     <section id="leaderboard">
       <h2>👻 Leaderboard</h2>
-      <div class="two-col">
-        <div>
-          <div id="leaders"></div>
-        </div>
-        <div>
-          <h3>🟣 Live Finds</h3>
-          <div id="liveBoard"></div>
-        </div>
-      </div>
-    </section>
-
-    <section id="admin">
-      <h2>🔐 Admin</h2>
-      <div id="admin-login">
-        <form id="admin-login-form" onsubmit="doAdminLogin(event)">
-          <div class="row">
-            <input id="admin-email" placeholder="Email" type="email" autocomplete="username" required/>
-            <input id="admin-pass" placeholder="Password" type="password" autocomplete="current-password" required/>
-            <button type="submit">Login</button>
-          </div>
-          <div class="muted">Only whitelisted accounts can manage tags & points.</div>
-        </form>
-      </div>
-      <div id="admin-panel" style="display:none;">
-        <div class="row">
-          <button onclick="signOut()">🚪 Sign out</button>
-          <span id="whoami" class="pill"></span>
-        </div>
-
-        <h3>Players (adjust points)</h3>
-        <div class="row">
-          <input id="searchName" placeholder="Search nickname"/>
-          <button onclick="loadPlayers()">Search</button>
-          <button onclick="loadPlayers(true)" title="Show all">Show all</button>
-        </div>
-        <table>
-          <thead><tr><th>Player</th><th class="right">Points</th><th>Δ (e.g. -5 or 10)</th><th>Reason</th><th></th></tr></thead>
-          <tbody id="playersTable"></tbody>
-        </table>
-
-        <h3>Tags</h3>
-        <div id="tag-list" class="card"></div>
-
-        <h3>Tag Images Manager</h3>
-        <div class="card">
-          <div class="row">
-            <button onclick="fillDefaultsForEmpty()">Fill defaults for empty (to /images/TAG.jpg)</button>
-          </div>
-          <textarea id="bulkInput" class="bulkbox" placeholder="Bulk paste lines like:
-SCREAM-01, /images/scream_poster.webp
-ALIEN-07, https://cdn.example.com/alien7.png"></textarea>
-          <div class="row">
-            <button onclick="bulkApplyImages()">Apply Bulk</button>
-          </div>
-          <div id="img-mgr" class="admin-grid" style="margin-top:10px;"></div>
-        </div>
-
-        <h3>Live Finds</h3>
-        <div id="live-finds" class="card"></div>
-      </div>
+      <div id="leaders"></div>
     </section>
   </main>
 
-  <div id="toast" class="toast" style="display:none;"></div>
+  <div id="toast" class="toast"></div>
 </body>
 </html>

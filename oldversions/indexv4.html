@@ -12,7 +12,11 @@
       margin:0; color:#fff; font-family:system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
       background: url('backgroundhalloween.png') center center / cover no-repeat fixed;
     }
-    body::before { content:""; position:fixed; inset:0; background:radial-gradient(ellipse at top, rgba(0,0,0,.55), rgba(0,0,0,.78) 60%); z-index:-1; }
+    body::before {
+      content:""; position:fixed; inset:0;
+      background:radial-gradient(ellipse at top, rgba(0,0,0,.55), rgba(0,0,0,.78) 60%);
+      z-index:-1;
+    }
     header { backdrop-filter: blur(4px); background:linear-gradient(90deg, rgba(10,8,12,.75), rgba(10,8,12,.35));
       padding:8px 12px; display:flex; align-items:center; gap:10px; position:sticky; top:0; z-index:5; border-bottom:1px solid var(--line); }
     .brand img { width:104px; height:auto; display:block; }
@@ -24,21 +28,25 @@
     section { display:none; } section.active { display:block; }
     .toast { position:fixed; bottom:12px; right:12px; background:#1a141f; border:1px solid var(--line); padding:10px 12px; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.35); display:none; }
     input, button, textarea, select { margin:6px 0; padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:rgba(18,16,24,.85); color:#fff; }
-    input::placeholder { color:#cabbdc; } .muted { color:#cfc7d9; font-size:12px; }
+    input::placeholder { color:#cabbdc; } .muted { color:var(--muted); font-size:12px; }
     .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
     .warn { background:rgba(80,10,10,.6); border:1px solid #6b1c1c; color:#ffd0d0; padding:10px 12px; border-radius:10px; margin:8px 0; }
     .oktag { background:#112a17; border:1px solid #1e4a2a; color:#b4f3c6; padding:6px 10px; border-radius:999px; font-size:12px; display:inline-block }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th, td { border-bottom:1px solid var(--line); padding:8px; text-align:left; vertical-align:middle; }
+    td.right { text-align:right } .pill { background:#201826; border:1px solid var(--line); padding:4px 8px; border-radius:999px; font-size:12px; }
     .card { border:1px solid var(--line); background:rgba(18,16,24,.78); border-radius:14px; padding:12px; margin:16px 0; box-shadow:0 12px 36px rgba(0,0,0,.35); }
     .list { list-style:none; padding:0; margin:0 } .item { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px dashed var(--line) }
     .item:last-child { border-bottom:none }
     .podium { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px; align-items:end; margin:8px 0 16px; }
     .podium .slot { position:relative; text-align:center; background:rgba(18,16,24,.88); border:1px solid var(--line); border-radius:12px 12px 6px 6px; box-shadow:0 10px 30px rgba(0,0,0,.35); padding:10px 8px; }
     .podium .slot .place { position:absolute; top:-10px; left:50%; transform:translateX(-50%); font-weight:900; font-size:12px; padding:4px 8px; border-radius:999px; background:#00000080; border:1px solid var(--line); }
-    .podium .slot .name { font-weight:800; margin-top:6px; } .podium .slot .pts { font-size:12px; color:#cfc7d9; }
+    .podium .slot .name { font-weight:800; margin-top:6px; } .podium .slot .pts { font-size:12px; color:var(--muted); }
     .podium .gold { height:150px; border-top:6px solid var(--gold); } .podium .silver { height:130px; border-top:6px solid var(--silver); } .podium .bronze { height:110px; border-top:6px solid var(--bronze); }
     .podium .medal { font-size:18px; display:block; margin-bottom:4px; }
     .lb-rest .rowline { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed var(--line); }
     .lb-rest .rank { width:26px; text-align:center; opacity:.85; }
+    .two-col { display:grid; grid-template-columns:1fr; gap:16px; } @media (min-width: 900px) { .two-col { grid-template-columns: 1.2fr .8fr; } }
     .gallery { display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; } @media (min-width: 520px) { .gallery { grid-template-columns: repeat(4, 1fr); } } @media (min-width: 820px) { .gallery { grid-template-columns: repeat(6, 1fr); } }
     .tile { position:relative; border-radius:12px; overflow:hidden; background:#0f0d12; border:1px solid var(--line); }
     .tile img { width:100%; height:100%; object-fit:cover; display:block; aspect-ratio: 1 / 1; filter: grayscale(100%) contrast(0.7) brightness(0.7); transition: filter .2s ease, transform .2s ease; }
@@ -60,8 +68,6 @@
     function cleanName(s){ return (s||"").replace(/\s+/g," ").trim(); }
     function normalizePhone(input){ if(!input) return ""; const digits=(""+input).replace(/\D+/g,""); if(digits.length===10) return "+1"+digits; if(digits.length===11 && digits.startsWith("1")) return "+"+digits; if(((input+"").startsWith("+") && digits.length>=10 && digits.length<=15)) return "+"+digits; return ""; }
     function isValidPhone(input){ return !!normalizePhone(input); }
-    function setCookie(name,value,days){ const d=new Date(); d.setTime(d.getTime()+days*24*60*60*1000); document.cookie=name+"="+encodeURIComponent(value)+"; expires="+d.toUTCString()+"; path=/"; }
-    function getCookie(name){ const m=document.cookie.match(new RegExp('(?:^|; )'+name.replace(/([.$?*|{}()\[\]\\\/\+^])/g,'\\$1')+'=([^;]*)')); return m?decodeURIComponent(m[1]):null; }
     let playerId=null, incomingTag=null;
     function activate(view){ document.querySelectorAll('section').forEach(s=>s.classList.remove('active')); $(view).classList.add('active'); document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active')); $('btn-'+view).classList.add('active'); if(view==='leaderboard') loadLeaderboard(); }
     window.show=activate;
@@ -69,19 +75,14 @@
       supabaseClient = window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
       const qs=new URLSearchParams(location.search);
       incomingTag=(qs.get('tag')||'').trim().toUpperCase();
-      const pidParam=(qs.get('pid')||'').trim();
-      const storedLS=localStorage.getItem('player_id');
-      const storedCookie=getCookie('player_id');
-      if(pidParam){ playerId=pidParam; }
-      else if(storedLS){ playerId=storedLS; }
-      else if(storedCookie){ playerId=storedCookie; }
-      if(playerId){ localStorage.setItem('player_id', playerId); setCookie('player_id', playerId, 365); }
+      const stored=localStorage.getItem('player_id');
+      if(stored) playerId=stored;
       if(incomingTag) localStorage.setItem('pending_tag', incomingTag);
-      await renderPlay(); await loadProgress(); await loadMyFinds(); await renderGallery();
-      if(localStorage.getItem('pending_tag')) toast("Scan captured — you're still logged in.");
+      await renderPlay();
+      await loadProgress(); await loadMyFinds(); await renderGallery();
+      if(localStorage.getItem('pending_tag')) toast("Scan captured — finish your profile to log it.");
     });
     async function fetchPlayer(id){ return supabaseClient.from('players').select('id,nickname,phone').eq('id',id).maybeSingle(); }
-    function rememberPlayer(id){ if(!id) return; localStorage.setItem('player_id', id); setCookie('player_id', id, 365); }
     async function renderPlay(){
       let data=null;
       if(playerId){ const res=await fetchPlayer(playerId); if(res.data) data=res.data; else playerId=null; }
@@ -92,19 +93,19 @@
         const p = localStorage.getItem('pending_tag'); const note=$('pendingNote'); if(p){ note.innerText=`You scanned: ${p}. Save your profile to log it.`; note.style.display='block'; } else note.style.display='none';
         return;
       }
-      $('profileBanner').style.display='none';
-      $('profileEditor').style.display='none';
-      $('profileSummary').style.display='block';
-      $('summaryNick').innerText = (data && data.nickname) ? data.nickname : (playerId.slice(0,8));
-      rememberPlayer(playerId);
-      tryAutoClaim();
+      const nickname = cleanName(data.nickname||""); const phoneOk = !!data.phone && isValidPhone(data.phone);
+      const nickOk = !!nickname && nickname.length>=2 && !badName(nickname); const ok = phoneOk && nickOk;
+      $('profileBanner').style.display = ok ? 'none' : 'block';
+      $('profileEditor').style.display = ok ? 'none' : 'block';
+      $('profileSummary').style.display = ok ? 'block' : 'none';
+      if(ok) $('summaryNick').innerText = nickname; else { $('nickname').value=nickname; $('phone').value=data.phone||""; }
     }
-    async function findPlayerByPhoneE164(e164){
+    async function findPlayerIdByPhoneE164(e164){
       if(!e164) return null;
-      const q = await supabaseClient.from('players').select('id,nickname,phone').order('created_at',{ascending:true});
+      const q = await supabaseClient.from('players').select('id, nickname, phone').order('created_at',{ascending:true});
       const rows = q.data||[];
       const match = rows.find(p => normalizePhone(p.phone)===e164);
-      return match || null;
+      return match ? match.id : null;
     }
     async function tryAutoClaim(){
       const p=(localStorage.getItem('pending_tag')||'').trim().toUpperCase();
@@ -119,29 +120,25 @@
       localStorage.removeItem('pending_tag'); history.replaceState({}, "", location.pathname+"?v=play");
     }
     window.saveProfile = async function saveProfile(){
-      const enteredNickname = cleanName(document.getElementById('nickname').value);
+      let nickname = cleanName(document.getElementById('nickname').value);
       const phoneRaw = document.getElementById('phone').value.trim();
       const e164 = normalizePhone(phoneRaw);
-      if(!enteredNickname){ toast("Nickname is required"); return; }
-      if(enteredNickname.length<2){ toast("Nickname must be at least 2 chars"); return; }
-      if(badName(enteredNickname)){ toast("Please choose a different nickname"); return; }
+      if(!nickname){ toast("Nickname is required"); return; }
+      if(nickname.length<2){ toast("Nickname must be at least 2 chars"); return; }
+      if(badName(nickname)){ toast("Please choose a different nickname"); return; }
       if(!isValidPhone(phoneRaw)){ toast("Enter a valid phone number"); return; }
-      const existing = await findPlayerByPhoneE164(e164);
-      if(existing){
-        playerId = existing.id; rememberPlayer(playerId);
-        if(normalizePhone(existing.phone) !== e164){
-          await supabaseClient.from('players').update({ phone: e164 }).eq('id', playerId);
-        }
-        document.getElementById('nickname').value = existing.nickname || "";
+      const existingId = await findPlayerIdByPhoneE164(e164);
+      if(existingId){
+        playerId = existingId; localStorage.setItem('player_id', playerId);
+        await supabaseClient.from('players').update({ nickname, phone: e164 }).eq('id', playerId);
         document.getElementById('profileOk').style.display='inline-block'; setTimeout(()=>document.getElementById('profileOk').style.display='none',1200);
-        await renderPlay(); await loadLeaderboard();
-        return;
+        await renderPlay(); await tryAutoClaim(); await loadLeaderboard(); return;
       }
-      const ins = await supabaseClient.from('players').insert({ nickname: enteredNickname, phone: e164 }).select().single();
+      const ins = await supabaseClient.from('players').insert({ nickname, phone: e164 }).select().single();
       if(ins.error) return toast("Save failed: "+ins.error.message);
-      playerId = ins.data.id; rememberPlayer(playerId);
+      playerId = ins.data.id; localStorage.setItem('player_id', playerId);
       document.getElementById('profileOk').style.display='inline-block'; setTimeout(()=>document.getElementById('profileOk').style.display='none',1200);
-      await renderPlay(); await loadLeaderboard();
+      await renderPlay(); await tryAutoClaim(); await loadLeaderboard();
     }
     async function loadProgress(){
       const tags = await supabaseClient.from('tags').select('*').eq('active', true);
@@ -197,7 +194,7 @@
   <main>
     <section id="play" class="active">
       <h2>🎃 Player</h2>
-      <div id="profileBanner" class="warn" style="display:none;">📝 Nickname <b>and</b> 📱 Phone are required once. Stay signed in across scans.</div>
+      <div id="profileBanner" class="warn" style="display:none;">📝 Nickname <b>and</b> 📱 Phone are required. Enter both and hit <b>Save</b> to continue.</div>
 
       <div id="profileEditor" class="card" style="display:none;">
         <div class="row">
